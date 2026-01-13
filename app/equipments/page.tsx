@@ -70,7 +70,7 @@ export default function EquipmentsPage() {
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-120px)] lg:h-[calc(100vh-64px)] flex flex-col">
+      <div className="h-full flex flex-col overflow-hidden">
         {/* Header - Sticky */}
         <div className="flex-shrink-0 pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">

@@ -65,7 +65,7 @@ export default function LiveStatusPage() {
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-120px)] lg:h-[calc(100vh-64px)] flex flex-col">
+      <div className="h-full flex flex-col overflow-hidden">
         {/* Header */}
         <div className="flex-shrink-0 flex items-center justify-between pb-4">
           <div>

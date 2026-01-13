@@ -210,7 +210,7 @@ export default function StatisticsPage() {
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-120px)] lg:h-[calc(100vh-64px)] flex flex-col">
+      <div className="h-full flex flex-col overflow-hidden">
         {/* Header - Sticky */}
         <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
@@ -247,8 +247,8 @@ export default function StatisticsPage() {
 
         {/* Scrollable Content */}
         <div className="flex-1 min-h-0 overflow-y-auto pr-2">
-        {/* KPI Section */}
-      <GlassCard className="mb-6 border-yellow-500/20">
+          {/* KPI Section */}
+          <GlassCard className="mb-6 border-yellow-500/20">
         <div className="flex items-center gap-2 mb-6">
           <Target className="w-5 h-5 text-yellow-400" />
           <h2 className="text-lg font-semibold text-white">{selectedYear}년 KPI 현황</h2>
@@ -668,7 +668,7 @@ export default function StatisticsPage() {
             <p className="text-center text-gray-500 py-8">데이터가 없습니다</p>
           )}
         </GlassCard>
-      </div>
+        </div>
         </div>
       </div>
     </AdminLayout>

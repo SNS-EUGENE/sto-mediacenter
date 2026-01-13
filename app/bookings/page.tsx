@@ -76,7 +76,7 @@ export default function BookingsPage() {
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-120px)] lg:h-[calc(100vh-64px)] flex flex-col">
+      <div className="h-full flex flex-col overflow-hidden">
         {/* Sticky Header */}
         <div className="flex-shrink-0 pb-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">

@@ -17,7 +17,7 @@ export default function DashboardPage() {
 
   return (
     <AdminLayout>
-      <div className="h-[calc(100vh-120px)] lg:h-[calc(100vh-64px)] flex flex-col">
+      <div className="h-full flex flex-col overflow-hidden">
         {/* Welcome Section - Sticky Header */}
         <div className="flex-shrink-0 mb-6">
           <h1 className="text-2xl lg:text-3xl font-bold gradient-text mb-2">안녕하세요, 관리자님</h1>

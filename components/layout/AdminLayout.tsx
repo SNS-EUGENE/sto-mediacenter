@@ -63,11 +63,11 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       {/* Main Content */}
       <main
         className={cn(
-          'main-content relative z-10 min-h-screen pb-24 lg:pb-8',
+          'main-content relative z-10 h-screen overflow-hidden',
           sidebarCollapsed && 'sidebar-collapsed'
         )}
       >
-        <div className="p-6 lg:p-8">
+        <div className="h-full p-6 pb-24 lg:p-8 lg:pb-8">
           {children}
         </div>
       </main>
