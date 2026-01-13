@@ -1,0 +1,20 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(dir \"c:\\\\한국SNS인재개발원\\\\종로 스튜디오 대시보드\")",
+      "Bash(node -e:*)",
+      "Bash(dir \"c:\\\\한국SNS인재개발원\\\\종로 스튜디오 대시보드\" /s /b)",
+      "Bash(dir \"C:\\\\한국SNS인재개발원\\\\종로 스튜디오 대시보드\")",
+      "Bash(dir \"C:\\\\한국SNS인재개발원\\\\종로 스튜디오 대시보드\\\\supabase\")",
+      "Bash(python:*)",
+      "Bash(dir \"C:\\\\한국SNS인재개발원\\\\종로 스튜디오 대시보드\" /b)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(timeout:*)",
+      "Bash(npm run dev:*)",
+      "Bash(curl:*)",
+      "Bash(powershell -Command:*)",
+      "Bash(git add:*)"
+    ]
+  }
+}

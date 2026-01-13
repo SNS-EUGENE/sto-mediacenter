@@ -1,0 +1,216 @@
+// Supabase 쿼리 함수들
+// 현재는 JSON 데이터를 사용하고 있으며, Supabase 연동 시 이 파일을 사용합니다.
+
+import { supabase } from './client'
+import type { Booking, BookingWithStudio, Equipment, Studio } from '@/types/supabase'
+import type { BookingFilters, PaginatedResponse, PaginationParams } from '@/types'
+
+// =============================================
+// Studios
+// =============================================
+
+export async function getStudios(): Promise<Studio[]> {
+  const { data, error } = await supabase
+    .from('studios')
+    .select('*')
+    .order('id')
+
+  if (error) throw error
+  return (data || []) as Studio[]
+}
+
+// =============================================
+// Bookings
+// =============================================
+
+export async function getBookings(
+  filters?: BookingFilters,
+  pagination?: PaginationParams
+): Promise<PaginatedResponse<BookingWithStudio>> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query: any = supabase
+    .from('bookings')
+    .select('*, studio:studios(*)', { count: 'exact' })
+
+  // Apply filters
+  if (filters?.studioId) {
+    query = query.eq('studio_id', filters.studioId)
+  }
+
+  if (filters?.status && filters.status.length > 0) {
+    query = query.in('status', filters.status)
+  }
+
+  if (filters?.dateFrom) {
+    query = query.gte('rental_date', filters.dateFrom)
+  }
+
+  if (filters?.dateTo) {
+    query = query.lte('rental_date', filters.dateTo)
+  }
+
+  if (filters?.searchTerm) {
+    query = query.or(
+      `applicant_name.ilike.%${filters.searchTerm}%,organization.ilike.%${filters.searchTerm}%,event_name.ilike.%${filters.searchTerm}%`
+    )
+  }
+
+  // Apply pagination
+  const page = pagination?.page || 1
+  const pageSize = pagination?.pageSize || 20
+  const from = (page - 1) * pageSize
+  const to = from + pageSize - 1
+
+  query = query
+    .order('rental_date', { ascending: false })
+    .order('time_slots', { ascending: true })
+    .range(from, to)
+
+  const { data, error, count } = await query
+
+  if (error) throw error
+
+  return {
+    data: (data || []) as BookingWithStudio[],
+    pagination: {
+      page,
+      pageSize,
+      total: count || 0,
+      totalPages: Math.ceil((count || 0) / pageSize),
+    },
+  }
+}
+
+export async function getBookingsByDate(date: string): Promise<BookingWithStudio[]> {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*, studio:studios(*)')
+    .eq('rental_date', date)
+    .order('time_slots', { ascending: true })
+
+  if (error) throw error
+  return (data || []) as BookingWithStudio[]
+}
+
+export async function getBookingsByDateRange(
+  startDate: string,
+  endDate: string
+): Promise<BookingWithStudio[]> {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*, studio:studios(*)')
+    .gte('rental_date', startDate)
+    .lte('rental_date', endDate)
+    .order('rental_date', { ascending: true })
+    .order('time_slots', { ascending: true })
+
+  if (error) throw error
+  return (data || []) as BookingWithStudio[]
+}
+
+export async function getBookingById(id: string): Promise<BookingWithStudio | null> {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('*, studio:studios(*)')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data as BookingWithStudio
+}
+
+export async function updateBookingStatus(
+  id: string,
+  status: Booking['status']
+): Promise<Booking> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('bookings')
+    .update({ status })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Booking
+}
+
+// =============================================
+// Equipments
+// =============================================
+
+export async function getEquipments(): Promise<Equipment[]> {
+  const { data, error } = await supabase
+    .from('equipments')
+    .select('*')
+    .order('name')
+
+  if (error) throw error
+  return (data || []) as Equipment[]
+}
+
+export async function updateEquipmentStatus(
+  id: string,
+  status: Equipment['status'],
+  notes?: string
+): Promise<Equipment> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('equipments')
+    .update({ status, notes })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Equipment
+}
+
+// =============================================
+// Statistics
+// =============================================
+
+export async function getBookingStats(startDate: string, endDate: string) {
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('studio_id, status, time_slots, rental_date')
+    .gte('rental_date', startDate)
+    .lte('rental_date', endDate)
+
+  if (error) throw error
+  return data || []
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+export async function getTodayStats(): Promise<{ bookings: any[]; stats: any }> {
+  const today = new Date().toISOString().split('T')[0]
+
+  const { data: todayBookings, error } = await supabase
+    .from('bookings')
+    .select('*, studio:studios(*)')
+    .eq('rental_date', today)
+    .not('status', 'eq', 'CANCELLED')
+
+  if (error) throw error
+
+  const stats = {
+    totalBookings: todayBookings?.length || 0,
+    byStudio: {} as Record<number, number>,
+    byStatus: {} as Record<string, number>,
+    totalHours: 0,
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  todayBookings?.forEach((booking: any) => {
+    // Count by studio
+    stats.byStudio[booking.studio_id] = (stats.byStudio[booking.studio_id] || 0) + 1
+
+    // Count by status
+    stats.byStatus[booking.status] = (stats.byStatus[booking.status] || 0) + 1
+
+    // Total hours
+    stats.totalHours += booking.time_slots?.length || 0
+  })
+
+  return { bookings: todayBookings || [], stats }
+}
