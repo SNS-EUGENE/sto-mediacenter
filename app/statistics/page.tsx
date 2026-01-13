@@ -254,109 +254,183 @@ export default function StatisticsPage() {
 
         <div className="grid sm:grid-cols-3 gap-4">
           {/* 스튜디오 가동률 */}
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-violet-500/20">
-                  <Calendar className="w-4 h-4 text-violet-400" />
+          {(() => {
+            const rate = Math.round((yearlyStats.totalBookings / KPI_TARGETS.studioBookings.target) * 100)
+            const isAchieved = rate >= 100
+            return (
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 relative overflow-hidden">
+                {/* 달성률 - 우상단에 크게 */}
+                <div className="absolute top-3 right-3 text-right">
+                  <span className={cn(
+                    'text-2xl font-bold',
+                    isAchieved ? 'text-emerald-400' : rate >= 80 ? 'text-violet-400' : 'text-white'
+                  )}>
+                    {rate}%
+                  </span>
                 </div>
-                <span className="text-sm font-medium text-white">스튜디오 가동률</span>
+
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 rounded-lg bg-violet-500/20">
+                    <Calendar className="w-4 h-4 text-violet-400" />
+                  </div>
+                  <span className="text-sm font-medium text-white">스튜디오 가동률</span>
+                </div>
+
+                <div className="mb-3">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold text-white">{yearlyStats.totalBookings}</span>
+                    <span className="text-lg text-gray-400">건</span>
+                    <span className="text-sm text-gray-500 ml-1">/ {KPI_TARGETS.studioBookings.target}건</span>
+                  </div>
+                </div>
+
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all duration-500',
+                      isAchieved ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-violet-500 to-purple-500'
+                    )}
+                    style={{ width: `${Math.min(rate, 100)}%` }}
+                  />
+                </div>
+
+                {/* 뱃지 */}
+                <div className="flex items-center gap-2">
+                  {isAchieved ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      <Award className="w-3 h-3" /> 목표 달성
+                    </span>
+                  ) : rate >= 80 ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-violet-500/20 text-violet-400 border border-violet-500/30">
+                      달성 임박
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-500">
+                      {KPI_TARGETS.studioBookings.target - yearlyStats.totalBookings}건 남음
+                    </span>
+                  )}
+                </div>
               </div>
-              {prevYearStats.totalBookings > 0 && (
-                <span className={cn(
-                  'text-xs px-2 py-0.5 rounded-full',
-                  yearlyStats.totalBookings >= prevYearStats.totalBookings
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : 'bg-red-500/20 text-red-400'
-                )}>
-                  {yearlyStats.totalBookings >= prevYearStats.totalBookings ? '▲' : '▼'}
-                  {Math.abs(Math.round((yearlyStats.totalBookings / prevYearStats.totalBookings - 1) * 100))}%
-                </span>
-              )}
-            </div>
-            <div className="flex items-end justify-between mb-2">
-              <div>
-                <span className="text-3xl font-bold text-white">{yearlyStats.totalBookings}</span>
-                <span className="text-lg text-gray-400">건</span>
-              </div>
-              <span className="text-sm text-gray-500">목표 {KPI_TARGETS.studioBookings.target}건</span>
-            </div>
-            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-violet-500 to-purple-500 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min((yearlyStats.totalBookings / KPI_TARGETS.studioBookings.target) * 100, 100)}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-2">달성률 {Math.round((yearlyStats.totalBookings / KPI_TARGETS.studioBookings.target) * 100)}%</p>
-          </div>
+            )
+          })()}
 
           {/* 크리에이티브 멤버십 */}
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-cyan-500/20">
-                  <Award className="w-4 h-4 text-cyan-400" />
+          {(() => {
+            const rate = Math.round((yearlyStats.uniqueApplicants / KPI_TARGETS.membership.target) * 100)
+            const isAchieved = rate >= 100
+            return (
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 relative overflow-hidden">
+                {/* 달성률 - 우상단에 크게 */}
+                <div className="absolute top-3 right-3 text-right">
+                  <span className={cn(
+                    'text-2xl font-bold',
+                    isAchieved ? 'text-emerald-400' : rate >= 80 ? 'text-cyan-400' : 'text-white'
+                  )}>
+                    {rate}%
+                  </span>
                 </div>
-                <span className="text-sm font-medium text-white">크리에이티브 멤버십</span>
+
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 rounded-lg bg-cyan-500/20">
+                    <Award className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <span className="text-sm font-medium text-white">크리에이티브 멤버십</span>
+                </div>
+
+                <div className="mb-3">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold text-white">{yearlyStats.uniqueApplicants}</span>
+                    <span className="text-lg text-gray-400">명</span>
+                    <span className="text-sm text-gray-500 ml-1">/ {KPI_TARGETS.membership.target}명</span>
+                  </div>
+                </div>
+
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all duration-500',
+                      isAchieved ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-cyan-500 to-blue-500'
+                    )}
+                    style={{ width: `${Math.min(rate, 100)}%` }}
+                  />
+                </div>
+
+                {/* 뱃지 */}
+                <div className="flex items-center gap-2">
+                  {isAchieved ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      <Award className="w-3 h-3" /> 목표 달성
+                    </span>
+                  ) : rate >= 80 ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-cyan-500/20 text-cyan-400 border border-cyan-500/30">
+                      달성 임박
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-500">
+                      {KPI_TARGETS.membership.target - yearlyStats.uniqueApplicants}명 남음
+                    </span>
+                  )}
+                </div>
               </div>
-              {prevYearStats.uniqueApplicants > 0 && (
-                <span className={cn(
-                  'text-xs px-2 py-0.5 rounded-full',
-                  yearlyStats.uniqueApplicants >= prevYearStats.uniqueApplicants
-                    ? 'bg-emerald-500/20 text-emerald-400'
-                    : 'bg-red-500/20 text-red-400'
-                )}>
-                  {yearlyStats.uniqueApplicants >= prevYearStats.uniqueApplicants ? '▲' : '▼'}
-                  {Math.abs(Math.round((yearlyStats.uniqueApplicants / prevYearStats.uniqueApplicants - 1) * 100))}%
-                </span>
-              )}
-            </div>
-            <div className="flex items-end justify-between mb-2">
-              <div>
-                <span className="text-3xl font-bold text-white">{yearlyStats.uniqueApplicants}</span>
-                <span className="text-lg text-gray-400">명</span>
-              </div>
-              <span className="text-sm text-gray-500">목표 {KPI_TARGETS.membership.target}명</span>
-            </div>
-            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min((yearlyStats.uniqueApplicants / KPI_TARGETS.membership.target) * 100, 100)}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-2">달성률 {Math.round((yearlyStats.uniqueApplicants / KPI_TARGETS.membership.target) * 100)}%</p>
-          </div>
+            )
+          })()}
 
           {/* 장기 이용자 확보 */}
-          <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <div className="p-2 rounded-lg bg-amber-500/20">
-                  <Building2 className="w-4 h-4 text-amber-400" />
+          {(() => {
+            const rate = Math.round((yearlyStats.uniqueOrganizations / KPI_TARGETS.partnerships.target) * 100)
+            const isAchieved = rate >= 100
+            return (
+              <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/20 relative overflow-hidden">
+                {/* 달성률 - 우상단에 크게 */}
+                <div className="absolute top-3 right-3 text-right">
+                  <span className={cn(
+                    'text-2xl font-bold',
+                    isAchieved ? 'text-emerald-400' : rate >= 80 ? 'text-amber-400' : 'text-white'
+                  )}>
+                    {rate}%
+                  </span>
                 </div>
-                <span className="text-sm font-medium text-white">장기 이용자 확보</span>
+
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-2 rounded-lg bg-amber-500/20">
+                    <Building2 className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <span className="text-sm font-medium text-white">장기 이용자 확보</span>
+                </div>
+
+                <div className="mb-3">
+                  <div className="flex items-baseline gap-1">
+                    <span className="text-3xl font-bold text-white">{yearlyStats.uniqueOrganizations}</span>
+                    <span className="text-lg text-gray-400">곳</span>
+                    <span className="text-sm text-gray-500 ml-1">/ {KPI_TARGETS.partnerships.target}곳</span>
+                  </div>
+                </div>
+
+                <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
+                  <div
+                    className={cn(
+                      'h-full rounded-full transition-all duration-500',
+                      isAchieved ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-amber-500 to-orange-500'
+                    )}
+                    style={{ width: `${Math.min(rate, 100)}%` }}
+                  />
+                </div>
+
+                {/* 뱃지 */}
+                <div className="flex items-center gap-2">
+                  {isAchieved ? (
+                    <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                      <Award className="w-3 h-3" /> 목표 달성
+                    </span>
+                  ) : (
+                    <span className="text-xs text-gray-500">
+                      교육기관·기업 협약
+                    </span>
+                  )}
+                </div>
               </div>
-              {yearlyStats.uniqueOrganizations >= KPI_TARGETS.partnerships.target && (
-                <span className="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-400">
-                  달성
-                </span>
-              )}
-            </div>
-            <div className="flex items-end justify-between mb-2">
-              <div>
-                <span className="text-3xl font-bold text-white">{yearlyStats.uniqueOrganizations}</span>
-                <span className="text-lg text-gray-400">곳</span>
-              </div>
-              <span className="text-sm text-gray-500">목표 {KPI_TARGETS.partnerships.target}곳 이상</span>
-            </div>
-            <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-              <div
-                className="h-full bg-gradient-to-r from-amber-500 to-orange-500 rounded-full transition-all duration-500"
-                style={{ width: `${Math.min((yearlyStats.uniqueOrganizations / KPI_TARGETS.partnerships.target) * 100, 100)}%` }}
-              />
-            </div>
-            <p className="text-xs text-gray-500 mt-2">교육기관·기업 협약</p>
-          </div>
+            )
+          })()}
         </div>
       </GlassCard>
 

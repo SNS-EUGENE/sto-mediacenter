@@ -5,7 +5,7 @@ import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
 import StudioBadge from '@/components/ui/StudioBadge'
 import { allBookings } from '@/lib/data'
-import { STUDIOS, VALID_TIME_SLOTS } from '@/lib/constants'
+import { STUDIOS } from '@/lib/constants'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -43,7 +43,7 @@ export default function CalendarPage() {
   const today = new Date()
   const [currentYear, setCurrentYear] = useState(today.getFullYear())
   const [currentMonth, setCurrentMonth] = useState(today.getMonth())
-  const [selectedDate, setSelectedDate] = useState<string | null>(null)
+  const [selectedDate, setSelectedDate] = useState<string>(formatDateStr(today.getFullYear(), today.getMonth(), today.getDate()))
   const [selectedStudio, setSelectedStudio] = useState<number | null>(null)
 
   // 달력 날짜 배열
@@ -66,7 +66,6 @@ export default function CalendarPage() {
 
   // 선택된 날짜의 예약 목록
   const selectedDateBookings = useMemo(() => {
-    if (!selectedDate) return []
     return allBookings
       .filter((b) => b.rentalDate === selectedDate)
       .filter((b) => !selectedStudio || b.studioId === selectedStudio)
@@ -104,31 +103,32 @@ export default function CalendarPage() {
 
   return (
     <AdminLayout>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold text-white mb-1">캘린더</h1>
-          <p className="text-sm text-gray-500">날짜별 예약 현황을 확인하세요</p>
+      <div className="h-[calc(100vh-120px)] lg:h-[calc(100vh-64px)] flex flex-col">
+        {/* Header */}
+        <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          <div>
+            <h1 className="text-xl lg:text-2xl font-bold text-white mb-1">캘린더</h1>
+            <p className="text-sm text-gray-500">날짜별 예약 현황을 확인하세요</p>
+          </div>
+
+          {/* Studio Filter */}
+          <select
+            value={selectedStudio || ''}
+            onChange={(e) => setSelectedStudio(e.target.value ? Number(e.target.value) : null)}
+            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+          >
+            <option value="">전체 스튜디오</option>
+            {STUDIOS.map((studio) => (
+              <option key={studio.id} value={studio.id}>
+                {studio.alias}
+              </option>
+            ))}
+          </select>
         </div>
 
-        {/* Studio Filter */}
-        <select
-          value={selectedStudio || ''}
-          onChange={(e) => setSelectedStudio(e.target.value ? Number(e.target.value) : null)}
-          className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
-        >
-          <option value="">전체 스튜디오</option>
-          {STUDIOS.map((studio) => (
-            <option key={studio.id} value={studio.id}>
-              {studio.alias}
-            </option>
-          ))}
-        </select>
-      </div>
-
-      <div className="grid lg:grid-cols-3 gap-6">
-        {/* Calendar */}
-        <GlassCard className="lg:col-span-2">
+        <div className="flex-1 min-h-0 grid lg:grid-cols-3 gap-4">
+          {/* Calendar */}
+          <GlassCard className="lg:col-span-2 flex flex-col overflow-hidden">
           {/* Calendar Header */}
           <div className="flex items-center justify-between mb-4">
             <button
@@ -172,10 +172,10 @@ export default function CalendarPage() {
           </div>
 
           {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-1">
+          <div className="flex-1 grid grid-cols-7 gap-px bg-white/5 rounded-lg overflow-hidden">
             {calendarDays.map((day, idx) => {
               if (day === null) {
-                return <div key={`empty-${idx}`} className="aspect-square" />
+                return <div key={`empty-${idx}`} className="bg-white/[0.02]" />
               }
 
               const dateStr = formatDateStr(currentYear, currentMonth, day)
@@ -189,16 +189,16 @@ export default function CalendarPage() {
                   key={dateStr}
                   onClick={() => setSelectedDate(dateStr)}
                   className={cn(
-                    'aspect-square p-1 rounded-lg transition-all relative',
-                    'hover:bg-white/5',
-                    isSelected && 'bg-purple-500/20 border border-purple-500/30',
-                    isToday && !isSelected && 'bg-white/5'
+                    'p-2 transition-all relative bg-white/[0.02] flex flex-col items-start',
+                    'hover:bg-white/[0.06]',
+                    isSelected && 'bg-purple-500/20 ring-1 ring-inset ring-purple-500/50',
+                    isToday && !isSelected && 'bg-white/[0.04]'
                   )}
                 >
                   <span
                     className={cn(
-                      'text-sm',
-                      isToday && 'font-bold text-purple-400',
+                      'text-sm font-medium',
+                      isToday && 'w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs',
                       !isToday && dayOfWeek === 0 && 'text-red-400',
                       !isToday && dayOfWeek === 6 && 'text-blue-400',
                       !isToday && dayOfWeek !== 0 && dayOfWeek !== 6 && 'text-gray-300'
@@ -207,19 +207,10 @@ export default function CalendarPage() {
                     {day}
                   </span>
                   {bookingCount > 0 && (
-                    <div className="absolute bottom-1 left-1/2 -translate-x-1/2 flex gap-0.5">
-                      {bookingCount <= 3 ? (
-                        Array.from({ length: bookingCount }).map((_, i) => (
-                          <div
-                            key={i}
-                            className="w-1 h-1 rounded-full bg-purple-400"
-                          />
-                        ))
-                      ) : (
-                        <span className="text-[10px] text-purple-400 font-medium">
-                          {bookingCount}
-                        </span>
-                      )}
+                    <div className="absolute bottom-2 right-2">
+                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 font-medium">
+                        {bookingCount}
+                      </span>
                     </div>
                   )}
                 </button>
@@ -229,142 +220,53 @@ export default function CalendarPage() {
         </GlassCard>
 
         {/* Selected Date Detail */}
-        <GlassCard>
-          <h3 className="text-lg font-semibold text-white mb-4">
-            {selectedDate
-              ? new Date(selectedDate).toLocaleDateString('ko-KR', {
-                  month: 'long',
-                  day: 'numeric',
-                  weekday: 'long',
-                })
-              : '날짜를 선택하세요'}
+        <GlassCard className="flex flex-col overflow-hidden">
+          <h3 className="flex-shrink-0 text-lg font-semibold text-white mb-4">
+            {new Date(selectedDate).toLocaleDateString('ko-KR', {
+              month: 'long',
+              day: 'numeric',
+              weekday: 'long',
+            })}
           </h3>
 
-          {selectedDate ? (
-            selectedDateBookings.length > 0 ? (
-              <div className="space-y-3 max-h-[500px] overflow-y-auto scrollbar-thin">
-                {selectedDateBookings.map((booking) => (
-                  <div
-                    key={booking.id}
-                    className={cn(
-                      'p-3 rounded-xl bg-white/[0.03] border-l-2',
-                      booking.statusCode === 'CONFIRMED' && 'border-green-500',
-                      booking.statusCode === 'PENDING' && 'border-yellow-500',
-                      booking.statusCode === 'APPLIED' && 'border-blue-500',
-                      booking.statusCode === 'CANCELLED' && 'border-red-500',
-                      booking.statusCode === 'DONE' && 'border-gray-500'
-                    )}
-                  >
-                    <div className="flex items-center justify-between mb-2">
-                      <StudioBadge studioId={booking.studioId} />
-                      <span className="text-xs text-gray-500">{booking.timeDisplay}</span>
-                    </div>
-                    <p className="text-sm text-white">{booking.applicantName}</p>
-                    {booking.organization && (
-                      <p className="text-xs text-gray-500">{booking.organization}</p>
-                    )}
-                    {booking.eventName && (
-                      <p className="text-xs text-gray-400 mt-1 truncate">
-                        {booking.eventName}
-                      </p>
-                    )}
+          {selectedDateBookings.length > 0 ? (
+            <div className="flex-1 min-h-0 space-y-3 overflow-y-auto scrollbar-thin">
+              {selectedDateBookings.map((booking) => (
+                <div
+                  key={booking.id}
+                  className={cn(
+                    'p-3 rounded-xl bg-white/[0.03] border-l-2',
+                    booking.statusCode === 'CONFIRMED' && 'border-green-500',
+                    booking.statusCode === 'PENDING' && 'border-yellow-500',
+                    booking.statusCode === 'APPLIED' && 'border-blue-500',
+                    booking.statusCode === 'CANCELLED' && 'border-red-500',
+                    booking.statusCode === 'DONE' && 'border-gray-500'
+                  )}
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <StudioBadge studioId={booking.studioId} />
+                    <span className="text-xs text-gray-500">{booking.timeDisplay}</span>
                   </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-center text-gray-500 py-8">예약이 없습니다</p>
-            )
+                  <p className="text-sm text-white">{booking.applicantName}</p>
+                  {booking.organization && (
+                    <p className="text-xs text-gray-500">{booking.organization}</p>
+                  )}
+                  {booking.eventName && (
+                    <p className="text-xs text-gray-400 mt-1 truncate">
+                      {booking.eventName}
+                    </p>
+                  )}
+                </div>
+              ))}
+            </div>
           ) : (
-            <p className="text-center text-gray-500 py-8">
-              캘린더에서 날짜를 선택하면
-              <br />
-              해당 날짜의 예약을 확인할 수 있습니다
-            </p>
+            <div className="flex-1 flex items-center justify-center">
+              <p className="text-center text-gray-500">예약이 없습니다</p>
+            </div>
           )}
         </GlassCard>
+        </div>
       </div>
-
-      {/* Timeline View for Selected Date */}
-      {selectedDate && selectedDateBookings.length > 0 && (
-        <GlassCard className="mt-6">
-          <h3 className="text-lg font-semibold text-white mb-4">타임라인 뷰</h3>
-          <div className="overflow-x-auto scrollbar-thin">
-            <div className="min-w-[600px]">
-              {/* Time Header */}
-              <div className="flex border-b border-white/5 pb-2 mb-2">
-                <div className="w-24 flex-shrink-0" />
-                {VALID_TIME_SLOTS.map((hour) => (
-                  <div
-                    key={hour}
-                    className="flex-1 text-center text-xs text-gray-500"
-                  >
-                    {hour}시
-                  </div>
-                ))}
-              </div>
-
-              {/* Studio Rows */}
-              {STUDIOS.filter(
-                (studio) => !selectedStudio || studio.id === selectedStudio
-              ).map((studio) => {
-                const studioBookings = selectedDateBookings.filter(
-                  (b) => b.studioId === studio.id
-                )
-
-                return (
-                  <div
-                    key={studio.id}
-                    className="flex items-center py-2 border-b border-white/5 last:border-0"
-                  >
-                    <div className="w-24 flex-shrink-0 pr-2">
-                      <StudioBadge studioId={studio.id} name={studio.alias} />
-                    </div>
-                    <div className="flex-1 flex relative h-10">
-                      {/* Time Slots Background */}
-                      {VALID_TIME_SLOTS.map((hour) => (
-                        <div
-                          key={hour}
-                          className="flex-1 border-r border-white/5 last:border-0"
-                        />
-                      ))}
-
-                      {/* Bookings */}
-                      {studioBookings.map((booking) => {
-                        const startIdx = VALID_TIME_SLOTS.indexOf(booking.startHour)
-                        const duration = booking.endHour - booking.startHour
-                        const widthPercent =
-                          (duration / VALID_TIME_SLOTS.length) * 100
-                        const leftPercent =
-                          (startIdx / VALID_TIME_SLOTS.length) * 100
-
-                        if (startIdx === -1) return null
-
-                        return (
-                          <div
-                            key={booking.id}
-                            className={cn(
-                              'absolute top-1 bottom-1 rounded-md px-2 flex items-center',
-                              'bg-gradient-to-r from-purple-500/30 to-pink-500/30 border border-purple-500/20',
-                              'text-xs text-white truncate'
-                            )}
-                            style={{
-                              left: `${leftPercent}%`,
-                              width: `${widthPercent}%`,
-                            }}
-                            title={`${booking.applicantName} - ${booking.eventName || '예약'}`}
-                          >
-                            <span className="truncate">{booking.applicantName}</span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </GlassCard>
-      )}
     </AdminLayout>
   )
 }

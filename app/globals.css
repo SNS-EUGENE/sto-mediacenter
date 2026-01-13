@@ -222,6 +222,54 @@ body {
 ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 3px; }
 ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 
+/* Select/Dropdown Dark Theme - Custom Styled */
+select {
+  background-color: rgba(255, 255, 255, 0.05);
+  color: white;
+  cursor: pointer;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 24 24' stroke='%239ca3af'%3E%3Cpath stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='M19 9l-7 7-7-7'%3E%3C/path%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  background-size: 14px;
+  padding-right: 36px;
+  transition: all 0.2s ease;
+}
+
+select:hover {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(139, 92, 246, 0.5);
+}
+
+select:focus {
+  background-color: rgba(255, 255, 255, 0.08);
+  border-color: rgba(139, 92, 246, 0.6);
+  outline: none;
+  box-shadow: 0 0 0 2px rgba(139, 92, 246, 0.2);
+}
+
+select option {
+  background-color: #16161e;
+  color: #e5e5e5;
+  padding: 12px 16px;
+  border: none;
+}
+
+select option:hover,
+select option:focus {
+  background-color: #1f1f2e !important;
+  color: white;
+}
+
+select option:checked {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.4) 0%, rgba(217, 70, 239, 0.3) 100%) !important;
+  background-color: rgba(139, 92, 246, 0.4) !important;
+  color: white !important;
+  font-weight: 500;
+}
+
 /* Status Badge */
 .status-badge {
   backdrop-filter: blur(10px);
