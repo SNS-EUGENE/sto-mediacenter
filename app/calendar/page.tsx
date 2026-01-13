@@ -234,25 +234,18 @@ export default function CalendarPage() {
               {selectedDateBookings.map((booking) => (
                 <div
                   key={booking.id}
-                  className={cn(
-                    'p-3 rounded-xl bg-white/[0.03] border-l-2',
-                    booking.statusCode === 'CONFIRMED' && 'border-green-500',
-                    booking.statusCode === 'PENDING' && 'border-yellow-500',
-                    booking.statusCode === 'APPLIED' && 'border-blue-500',
-                    booking.statusCode === 'CANCELLED' && 'border-red-500',
-                    booking.statusCode === 'DONE' && 'border-gray-500'
-                  )}
+                  className="p-3 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/[0.05] transition-colors"
                 >
                   <div className="flex items-center justify-between mb-2">
                     <StudioBadge studioId={booking.studioId} />
-                    <span className="text-xs text-gray-500">{booking.timeDisplay}</span>
+                    <span className="text-xs text-purple-400 font-medium">{booking.timeDisplay}</span>
                   </div>
-                  <p className="text-sm text-white">{booking.applicantName}</p>
+                  <p className="text-sm text-white font-medium">{booking.applicantName}</p>
                   {booking.organization && (
-                    <p className="text-xs text-gray-500">{booking.organization}</p>
+                    <p className="text-xs text-gray-400">{booking.organization}</p>
                   )}
                   {booking.eventName && (
-                    <p className="text-xs text-gray-400 mt-1 truncate">
+                    <p className="text-xs text-gray-500 mt-1 truncate">
                       {booking.eventName}
                     </p>
                   )}

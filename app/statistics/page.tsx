@@ -593,16 +593,16 @@ export default function StatisticsPage() {
                 <div
                   key={day}
                   className={cn(
-                    'aspect-square rounded-md flex items-center justify-center relative',
+                    'aspect-square rounded-md p-1.5 relative',
                     getHeatmapColor(count)
                   )}
                   title={`${dateStr}: ${count}건`}
                 >
-                  <span className="text-xs text-gray-300">{day}</span>
+                  <span className="text-sm text-gray-300">{day}</span>
                   {count > 0 && (
-                    <span className="absolute bottom-0.5 right-0.5 text-[8px] text-purple-300">
-                      {count}
-                    </span>
+                    <div className="absolute bottom-1 right-1 w-5 h-5 rounded-full bg-purple-500 flex items-center justify-center">
+                      <span className="text-[10px] font-medium text-white">{count}</span>
+                    </div>
                   )}
                 </div>
               )

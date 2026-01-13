@@ -45,9 +45,9 @@ export const EQUIPMENT_STATUS_LABELS: Record<string, string> = {
 
 // 스튜디오 목록
 export const STUDIOS = [
-  { id: 1, name: '대형 스튜디오', alias: '대형 스튜디오', description: '다목적 대형 공간, 최대 30인 수용', capacity: 30 },
-  { id: 2, name: '1인 스튜디오 A', alias: '1인 스튜디오 #1', description: '개인 크리에이터용 소형 스튜디오', capacity: 2 },
-  { id: 3, name: '1인 스튜디오 B', alias: '1인 스튜디오 #2', description: '개인 크리에이터용 소형 스튜디오', capacity: 2 },
+  { id: 1, name: '대형 스튜디오', alias: '대형', description: '다목적 대형 공간, 최대 30인 수용', capacity: 30 },
+  { id: 2, name: '1인 스튜디오 A', alias: '1인 A', description: '개인 크리에이터용 소형 스튜디오', capacity: 2 },
+  { id: 3, name: '1인 스튜디오 B', alias: '1인 B', description: '개인 크리에이터용 소형 스튜디오', capacity: 2 },
 ]
 
 // 네비게이션 메뉴

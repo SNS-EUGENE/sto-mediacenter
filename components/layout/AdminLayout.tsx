@@ -11,11 +11,16 @@ interface AdminLayoutProps {
 
 export default function AdminLayout({ children }: AdminLayoutProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
+  const [mounted, setMounted] = useState(false)
 
-  // Load sidebar state from localStorage
+  // Load sidebar state - 일시적으로 항상 펼침 상태 유지
   useEffect(() => {
-    const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true'
-    setSidebarCollapsed(isCollapsed)
+    // const isCollapsed = localStorage.getItem('sidebarCollapsed') === 'true'
+    // setSidebarCollapsed(isCollapsed)
+    setSidebarCollapsed(false) // 항상 펼침
+    requestAnimationFrame(() => {
+      setMounted(true)
+    })
   }, [])
 
   const handleToggle = () => {
@@ -27,17 +32,22 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
   return (
     <div className="min-h-screen text-white">
       {/* Ambient Background */}
-      <div className={cn('ambient-bg', sidebarCollapsed && 'sidebar-collapsed')}>
+      <div className={cn(
+        'ambient-bg',
+        mounted && 'with-transition',
+        sidebarCollapsed && 'sidebar-collapsed'
+      )}>
         <div className="blob blob-1" />
         <div className="blob blob-2" />
         <div className="blob blob-3" />
       </div>
 
-      {/* Sidebar Toggle Button */}
-      <button
+      {/* Sidebar Toggle Button - 일시 비활성화 */}
+      {/* <button
         onClick={handleToggle}
         className={cn(
           'sidebar-toggle hidden lg:flex',
+          mounted && 'with-transition',
           sidebarCollapsed && 'collapsed'
         )}
       >
@@ -55,15 +65,16 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
             d="M15 19l-7-7 7-7"
           />
         </svg>
-      </button>
+      </button> */}
 
       {/* Desktop Sidebar */}
-      <Sidebar collapsed={sidebarCollapsed} onToggle={handleToggle} />
+      <Sidebar collapsed={sidebarCollapsed} onToggle={handleToggle} mounted={mounted} />
 
       {/* Main Content */}
       <main
         className={cn(
           'main-content relative z-10 h-screen overflow-hidden',
+          mounted && 'with-transition',
           sidebarCollapsed && 'sidebar-collapsed'
         )}
       >

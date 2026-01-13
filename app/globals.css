@@ -23,6 +23,9 @@ body {
   overflow: hidden;
   pointer-events: none;
   z-index: 0;
+}
+
+.ambient-bg.with-transition {
   transition: left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
@@ -93,11 +96,25 @@ body {
   background: transparent;
   backdrop-filter: blur(40px);
   border-right: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.sidebar.with-transition {
   transition: width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar.collapsed {
   width: 72px;
+}
+
+/* Sidebar text - hidden by default, shown when expanded */
+.sidebar .sidebar-text {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+}
+
+.sidebar.collapsed .sidebar-text {
+  display: none;
 }
 
 /* Logo area */
@@ -147,9 +164,12 @@ body {
   align-items: center;
   justify-content: center;
   cursor: pointer;
-  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
   z-index: 100;
   box-shadow: 0 2px 8px rgba(124, 58, 237, 0.4);
+}
+
+.sidebar-toggle.with-transition {
+  transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar-toggle:hover {
@@ -164,6 +184,9 @@ body {
 /* Main Content */
 .main-content {
   margin-left: 0;
+}
+
+.main-content.with-transition {
   transition: margin-left 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
