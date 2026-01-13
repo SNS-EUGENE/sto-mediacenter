@@ -210,41 +210,44 @@ export default function StatisticsPage() {
 
   return (
     <AdminLayout>
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-        <div>
-          <h1 className="text-xl lg:text-2xl font-bold text-white mb-1">통계</h1>
-          <p className="text-sm text-gray-500">예약 현황 분석</p>
+      <div className="h-[calc(100vh-120px)] lg:h-[calc(100vh-64px)] flex flex-col">
+        {/* Header - Sticky */}
+        <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <div>
+            <h1 className="text-xl lg:text-2xl font-bold text-white mb-1">통계</h1>
+            <p className="text-sm text-gray-500">예약 현황 분석</p>
+          </div>
+
+          {/* Date Selector */}
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedYear}
+              onChange={(e) => setSelectedYear(Number(e.target.value))}
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
+            >
+              {yearOptions.map((year) => (
+                <option key={year} value={year}>
+                  {year}년
+                </option>
+              ))}
+            </select>
+            <select
+              value={selectedMonth}
+              onChange={(e) => setSelectedMonth(Number(e.target.value))}
+              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
+            >
+              {monthOptions.map((month) => (
+                <option key={month} value={month}>
+                  {month + 1}월
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Date Selector */}
-        <div className="flex items-center gap-2">
-          <select
-            value={selectedYear}
-            onChange={(e) => setSelectedYear(Number(e.target.value))}
-            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
-          >
-            {yearOptions.map((year) => (
-              <option key={year} value={year}>
-                {year}년
-              </option>
-            ))}
-          </select>
-          <select
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(Number(e.target.value))}
-            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
-          >
-            {monthOptions.map((month) => (
-              <option key={month} value={month}>
-                {month + 1}월
-              </option>
-            ))}
-          </select>
-        </div>
-      </div>
-
-      {/* KPI Section */}
+        {/* Scrollable Content */}
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+        {/* KPI Section */}
       <GlassCard className="mb-6 border-yellow-500/20">
         <div className="flex items-center gap-2 mb-6">
           <Target className="w-5 h-5 text-yellow-400" />
@@ -665,6 +668,8 @@ export default function StatisticsPage() {
             <p className="text-center text-gray-500 py-8">데이터가 없습니다</p>
           )}
         </GlassCard>
+      </div>
+        </div>
       </div>
     </AdminLayout>
   )
