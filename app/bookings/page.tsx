@@ -6,11 +6,14 @@ import GlassCard from '@/components/ui/GlassCard'
 import StatusBadge from '@/components/ui/StatusBadge'
 import StudioBadge from '@/components/ui/StudioBadge'
 import Select from '@/components/ui/Select'
-import { getBookings } from '@/lib/supabase/queries'
+import BookingModal from '@/components/ui/BookingModal'
+import ConfirmModal from '@/components/ui/ConfirmModal'
+import ExcelUploadModal from '@/components/ui/ExcelUploadModal'
+import { getBookings, createBooking, updateBooking, deleteBooking, checkBookingConflict } from '@/lib/supabase/queries'
 import { STUDIOS, BOOKING_STATUS_LABELS } from '@/lib/constants'
-import { Search, ChevronLeft, ChevronRight, ChevronDown, Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, ChevronDown, Plus, Edit2, Trash2, Loader2, FileSpreadsheet } from 'lucide-react'
 import { cn, timeSlotsToString } from '@/lib/utils'
-import type { BookingWithStudio } from '@/types/supabase'
+import type { BookingWithStudio, BookingInsert, Booking } from '@/types/supabase'
 
 const ITEMS_PER_PAGE = 20
 
@@ -26,6 +29,14 @@ export default function BookingsPage() {
   const [totalCount, setTotalCount] = useState(0)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+
+  // 모달 상태
+  const [isBookingModalOpen, setIsBookingModalOpen] = useState(false)
+  const [editingBooking, setEditingBooking] = useState<Booking | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deletingBookingId, setDeletingBookingId] = useState<string | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
+  const [isExcelModalOpen, setIsExcelModalOpen] = useState(false)
 
   // 데이터 로드
   const loadBookings = useCallback(async () => {
@@ -75,6 +86,83 @@ export default function BookingsPage() {
     setExpandedId(expandedId === id ? null : id)
   }
 
+  // 새 예약 버튼 클릭
+  const handleNewBooking = () => {
+    setEditingBooking(null)
+    setIsBookingModalOpen(true)
+  }
+
+  // 수정 버튼 클릭
+  const handleEditBooking = (booking: BookingWithStudio) => {
+    setEditingBooking(booking)
+    setIsBookingModalOpen(true)
+  }
+
+  // 삭제 버튼 클릭
+  const handleDeleteClick = (id: string) => {
+    setDeletingBookingId(id)
+    setIsDeleteModalOpen(true)
+  }
+
+  // 예약 저장 (신규/수정)
+  const handleSaveBooking = async (data: BookingInsert) => {
+    // 충돌 확인
+    const hasConflict = await checkBookingConflict(
+      data.studio_id,
+      data.rental_date,
+      data.time_slots,
+      editingBooking?.id
+    )
+
+    if (hasConflict) {
+      throw new Error('해당 시간대에 이미 예약이 있습니다')
+    }
+
+    if (editingBooking) {
+      // 수정
+      await updateBooking(editingBooking.id, data)
+    } else {
+      // 신규
+      await createBooking(data)
+    }
+
+    // 데이터 새로고침
+    await loadBookings()
+  }
+
+  // 삭제 확인
+  const handleConfirmDelete = async () => {
+    if (!deletingBookingId) return
+
+    setDeleteLoading(true)
+    try {
+      await deleteBooking(deletingBookingId)
+      setIsDeleteModalOpen(false)
+      setDeletingBookingId(null)
+      await loadBookings()
+    } catch (err) {
+      console.error('Delete failed:', err)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
+  // 엑셀 업로드
+  const handleExcelUpload = async (bookings: BookingInsert[]) => {
+    // 순차적으로 생성 (충돌 체크 포함)
+    for (const booking of bookings) {
+      const hasConflict = await checkBookingConflict(
+        booking.studio_id,
+        booking.rental_date,
+        booking.time_slots
+      )
+      if (!hasConflict) {
+        await createBooking(booking)
+      }
+    }
+    await loadBookings()
+  }
+
   return (
     <AdminLayout>
       <div className="h-full flex flex-col overflow-hidden">
@@ -87,10 +175,22 @@ export default function BookingsPage() {
                 총 {totalCount}건
               </p>
             </div>
-            <button className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-xl transition-colors">
-              <Plus className="w-4 h-4" />
-              새 예약
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setIsExcelModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                <FileSpreadsheet className="w-4 h-4" />
+                엑셀 업로드
+              </button>
+              <button
+                onClick={handleNewBooking}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                새 예약
+              </button>
+            </div>
           </div>
 
           {/* Compact Filters */}
@@ -254,11 +354,23 @@ export default function BookingsPage() {
                           )}
                         </div>
                         <div className="flex gap-2 pt-3 border-t border-white/5">
-                          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditBooking(booking)
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                          >
                             <Edit2 className="w-3.5 h-3.5" />
                             수정
                           </button>
-                          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteClick(booking.id)
+                            }}
+                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors"
+                          >
                             <Trash2 className="w-3.5 h-3.5" />
                             삭제
                           </button>
@@ -323,11 +435,23 @@ export default function BookingsPage() {
                           </div>
                         </div>
                         <div className="flex gap-2 pt-3 border-t border-white/5">
-                          <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-white bg-white/10 rounded-lg">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleEditBooking(booking)
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-white bg-white/10 rounded-lg"
+                          >
                             <Edit2 className="w-3.5 h-3.5" />
                             수정
                           </button>
-                          <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-red-400 bg-red-500/10 rounded-lg">
+                          <button
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              handleDeleteClick(booking.id)
+                            }}
+                            className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-red-400 bg-red-500/10 rounded-lg"
+                          >
                             <Trash2 className="w-3.5 h-3.5" />
                             삭제
                           </button>
@@ -376,6 +500,39 @@ export default function BookingsPage() {
           )}
         </GlassCard>
       </div>
+
+      {/* 예약 모달 */}
+      <BookingModal
+        isOpen={isBookingModalOpen}
+        onClose={() => {
+          setIsBookingModalOpen(false)
+          setEditingBooking(null)
+        }}
+        onSubmit={handleSaveBooking}
+        booking={editingBooking}
+      />
+
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false)
+          setDeletingBookingId(null)
+        }}
+        onConfirm={handleConfirmDelete}
+        title="예약 삭제"
+        message="정말 이 예약을 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+        variant="danger"
+        loading={deleteLoading}
+      />
+
+      {/* 엑셀 업로드 모달 */}
+      <ExcelUploadModal
+        isOpen={isExcelModalOpen}
+        onClose={() => setIsExcelModalOpen(false)}
+        onUpload={handleExcelUpload}
+      />
     </AdminLayout>
   )
 }

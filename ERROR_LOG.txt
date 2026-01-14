@@ -1,0 +1,74 @@
+============================================
+종로 스튜디오 대시보드 - 에러 로그
+작성일: 2026-01-14
+============================================
+
+## 현재 발생 중인 문제
+
+### 1. Next.js 개발 서버 시작 불가
+
+에러 메시지:
+```
+Error: EPERM: operation not permitted, open 'C:\한국SNS인재개발원\종로 스튜디오 대시보드\.next\trace'
+```
+
+원인:
+- `.next` 폴더 내 파일이 다른 프로세스(VSCode, 이전 dev 서버 등)에 의해 잠김
+- Windows 파일 락 문제
+
+해결 방법:
+1. VSCode 완전히 종료 (X 버튼)
+2. 파일 탐색기에서 `.next` 폴더 수동 삭제
+3. cmd 또는 PowerShell 새로 열어서:
+   ```
+   cd "C:\한국SNS인재개발원\종로 스튜디오 대시보드"
+   npm run dev
+   ```
+4. 위 방법이 안 되면 컴퓨터 재시작 후 다시 시도
+
+### 2. 예약 등록 시 "저장에 실패했습니다" 에러 (해결됨)
+
+원인:
+- Supabase RLS(Row Level Security) 정책이 authenticated 사용자만 INSERT/UPDATE/DELETE 허용
+- 현재 로그인 없이 anon key 사용 중이라 권한 없음
+
+해결:
+- `supabase/update_rls.sql` 파일을 Supabase SQL Editor에서 실행
+- anon 사용자도 CRUD 가능하도록 임시 정책 변경
+- 인증 구현 후 다시 authenticated only로 원복 필요
+
+============================================
+
+## 오늘 작업 요약 (2026-01-14)
+
+### 구현 완료
+1. 예약 CRUD
+   - components/ui/BookingModal.tsx (등록/수정)
+   - components/ui/ConfirmModal.tsx (삭제 확인)
+   - lib/supabase/queries.ts에 CRUD 함수 추가
+
+2. 장비 CRUD
+   - components/ui/EquipmentModal.tsx (등록/수정)
+   - 삭제 기능
+
+3. 엑셀 업로드
+   - components/ui/ExcelUploadModal.tsx
+   - STO 시스템 엑셀 파일 파싱
+   - 시간 충돌 체크
+
+### DB 변경사항 (Supabase에서 실행 필요)
+- supabase/update_rls.sql
+  - booking_status ENUM에 'CANCELLED' 추가
+  - bookings 테이블에 fee, cancelled_at 컬럼 추가
+  - RLS 정책 변경 (anon CRUD 허용)
+
+============================================
+
+## 다음 작업자 참고사항
+
+1. `.next` 폴더 문제 발생 시 → 삭제 후 재시작
+2. Supabase SQL 실행 필요 → supabase/update_rls.sql
+3. 남은 작업 → 인증 시스템 구현 (로그인 페이지)
+4. 진행률 → 약 85% (README.md 참고)
+
+============================================

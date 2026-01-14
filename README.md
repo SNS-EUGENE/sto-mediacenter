@@ -52,21 +52,23 @@
 - [x] 키오스크 페이지 (app/kiosk/page.tsx)
 - [x] 실시간 갱신 (1분 간격)
 
-### Phase 6: 예약 관리 - 작업 완료 (Supabase 연동)
+### Phase 6: 예약 관리 - 작업 완료 (CRUD 구현)
 - [x] 예약 목록 페이지 (Supabase 실시간)
 - [ ] 예약 상세 페이지
-- [ ] 예약 등록/수정 폼
+- [x] 예약 등록/수정 모달 (BookingModal.tsx)
+- [x] 예약 삭제 기능 (ConfirmModal.tsx)
 - [x] 예약 캘린더 페이지 (Supabase 연동)
-- [ ] 엑셀 업로드 기능 - **미구현**
-- [x] 예약 쿼리 함수 (lib/supabase/queries.ts)
+- [x] 엑셀 업로드 기능 (ExcelUploadModal.tsx)
+- [x] 예약 쿼리 함수 (createBooking, updateBooking, deleteBooking, checkBookingConflict)
 
-### Phase 7: 장비 관리 - 작업 완료 (Supabase 연동)
+### Phase 7: 장비 관리 - 작업 완료 (CRUD 구현)
 - [x] 장비 목록 페이지 (Supabase 실시간)
 - [x] 장비 데이터 파싱 (장비 목록.xlsx → SQL seed)
 - [ ] 장비 상세 페이지
-- [ ] 장비 등록/수정 폼
+- [x] 장비 등록/수정 모달 (EquipmentModal.tsx)
+- [x] 장비 삭제 기능
 - [ ] 사진 업로드 기능
-- [x] 장비 쿼리 함수 (lib/supabase/queries.ts)
+- [x] 장비 쿼리 함수 (createEquipment, updateEquipment, deleteEquipment)
 
 ### Phase 8: 인증 - 작업 전
 - [ ] 로그인 페이지
@@ -87,18 +89,36 @@
 
 ---
 
-### 전체 진행률: 약 75%
+### 전체 진행률: 약 85%
 
 | 구분 | 상태 | 비고 |
 |------|------|------|
-| UI/프론트엔드 | 90% | 모든 페이지 UI 완료, 로딩 상태 |
+| UI/프론트엔드 | 95% | 모든 페이지 UI 완료, CRUD 모달 |
 | 장비 데이터 | 100% | 469개 장비/자재 파싱 완료, SQL seed 생성 |
-| 백엔드/API | 80% | Supabase 연동 완료 (쿼리 함수) |
+| 백엔드/API | 95% | Supabase CRUD 완료 |
 | 데이터 연동 | 100% | 모든 페이지 실시간 데이터 |
 | 인증 | 0% | 미구현 |
 | 키오스크 | 100% | 전체화면 타임라인 완료 |
 
-### 최근 작업 내역 (2026-01-14)
+### 최근 작업 내역 (2026-01-14 오후)
+- **예약 CRUD 기능 구현**
+  - BookingModal.tsx: 예약 등록/수정 모달
+  - ConfirmModal.tsx: 삭제 확인 모달
+  - createBooking, updateBooking, deleteBooking, cancelBooking 함수
+  - checkBookingConflict: 시간 충돌 검사
+- **장비 CRUD 기능 구현**
+  - EquipmentModal.tsx: 장비 등록/수정 모달
+  - createEquipment, updateEquipment, deleteEquipment 함수
+- **엑셀 업로드 기능 구현**
+  - ExcelUploadModal.tsx: 드래그앤드롭 엑셀 업로드
+  - STO 시스템 엑셀 파일 파싱 (xlsx 라이브러리)
+  - 시간 충돌 자동 체크 후 업로드
+- **RLS 정책 업데이트** (supabase/update_rls.sql)
+  - anon 사용자도 CRUD 가능하도록 임시 변경
+  - booking_status ENUM에 CANCELLED 추가
+  - bookings 테이블에 fee, cancelled_at 컬럼 추가
+
+### 작업 내역 (2026-01-14 오전)
 - **Supabase 연동 완료**: 모든 페이지 실시간 데이터 연동
 - 예약 데이터 쿼리 함수 구현 (getBookings, getBookingsByDate, getBookingsByDateRange)
 - 장비 데이터 쿼리 함수 구현 (getEquipments, getEquipmentStats)
@@ -208,16 +228,10 @@ npx ts-node scripts/generateEquipmentSQL.ts
 
 1. **인증 시스템**
    - 관리자 로그인 구현
+   - RLS 정책 원복 (authenticated 사용자만 CRUD)
 
-2. **CRUD 기능**
-   - 예약 등록/수정/삭제
-   - 장비 등록/수정/삭제
-
-3. **엑셀 업로드**
-   - STO 시스템 엑셀 파싱
-
-4. **실시간 구독**
-   - Supabase Realtime 적용
+2. **실시간 구독**
+   - Supabase Realtime 적용 (현재는 polling)
 
 ## 장비 데이터
 

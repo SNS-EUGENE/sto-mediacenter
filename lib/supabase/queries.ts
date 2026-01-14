@@ -135,6 +135,95 @@ export async function updateBookingStatus(
   return data as Booking
 }
 
+// 예약 생성
+export async function createBooking(
+  bookingData: Omit<Booking, 'id' | 'created_at' | 'updated_at'>
+): Promise<Booking> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('bookings')
+    .insert(bookingData)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Booking
+}
+
+// 예약 수정
+export async function updateBooking(
+  id: string,
+  updates: Partial<Omit<Booking, 'id' | 'created_at' | 'updated_at'>>
+): Promise<Booking> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('bookings')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Booking
+}
+
+// 예약 삭제
+export async function deleteBooking(id: string): Promise<void> {
+  const { error } = await supabase.from('bookings').delete().eq('id', id)
+
+  if (error) throw error
+}
+
+// 예약 취소 (soft delete)
+export async function cancelBooking(id: string): Promise<Booking> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('bookings')
+    .update({
+      status: 'CANCELLED',
+      cancelled_at: new Date().toISOString(),
+    })
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Booking
+}
+
+// 예약 충돌 확인
+export async function checkBookingConflict(
+  studioId: number,
+  rentalDate: string,
+  timeSlots: number[],
+  excludeBookingId?: string
+): Promise<boolean> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query: any = supabase
+    .from('bookings')
+    .select('id, time_slots')
+    .eq('studio_id', studioId)
+    .eq('rental_date', rentalDate)
+    .not('status', 'eq', 'CANCELLED')
+
+  if (excludeBookingId) {
+    query = query.neq('id', excludeBookingId)
+  }
+
+  const { data, error } = await query
+
+  if (error) throw error
+
+  // 시간 충돌 검사
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const hasConflict = (data || []).some((booking: any) => {
+    const existingSlots = booking.time_slots || []
+    return timeSlots.some((slot) => existingSlots.includes(slot))
+  })
+
+  return hasConflict
+}
+
 // =============================================
 // Equipments
 // =============================================
@@ -210,6 +299,46 @@ export async function updateEquipmentStatus(
 
   if (error) throw error
   return data as Equipment
+}
+
+// 장비 생성
+export async function createEquipment(
+  id: string,
+  equipmentData: Omit<Equipment, 'id' | 'created_at' | 'updated_at'>
+): Promise<Equipment> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('equipments')
+    .insert({ id, ...equipmentData })
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Equipment
+}
+
+// 장비 수정
+export async function updateEquipment(
+  id: string,
+  updates: Partial<Omit<Equipment, 'id' | 'created_at' | 'updated_at'>>
+): Promise<Equipment> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from('equipments')
+    .update(updates)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as Equipment
+}
+
+// 장비 삭제
+export async function deleteEquipment(id: string): Promise<void> {
+  const { error } = await supabase.from('equipments').delete().eq('id', id)
+
+  if (error) throw error
 }
 
 export async function getEquipmentStats() {

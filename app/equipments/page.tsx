@@ -5,11 +5,13 @@ import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
 import StatusBadge from '@/components/ui/StatusBadge'
 import Select from '@/components/ui/Select'
-import { getEquipments, getEquipmentStats } from '@/lib/supabase/queries'
+import EquipmentModal from '@/components/ui/EquipmentModal'
+import ConfirmModal from '@/components/ui/ConfirmModal'
+import { getEquipments, getEquipmentStats, createEquipment, updateEquipment, deleteEquipment } from '@/lib/supabase/queries'
 import { EQUIPMENT_STATUS_LABELS } from '@/lib/constants'
-import { Search, Camera, Lightbulb, Mic, Package, Monitor, Wifi, Cable, Loader2 } from 'lucide-react'
+import { Search, Camera, Lightbulb, Mic, Package, Monitor, Wifi, Cable, Loader2, Plus, Edit2, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import type { Equipment } from '@/types/supabase'
+import type { Equipment, EquipmentInsert } from '@/types/supabase'
 
 // 카테고리별 아이콘
 function getCategoryIcon(category: string) {
@@ -47,6 +49,13 @@ export default function EquipmentsPage() {
     materialCount: number
   } | null>(null)
   const [loading, setLoading] = useState(true)
+
+  // 모달 상태
+  const [isEquipmentModalOpen, setIsEquipmentModalOpen] = useState(false)
+  const [editingEquipment, setEditingEquipment] = useState<Equipment | null>(null)
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false)
+  const [deletingEquipmentId, setDeletingEquipmentId] = useState<string | null>(null)
+  const [deleteLoading, setDeleteLoading] = useState(false)
 
   // 데이터 로드
   const loadData = useCallback(async () => {
@@ -136,6 +145,61 @@ export default function EquipmentsPage() {
     [equipmentOnly]
   )
 
+  // 새 장비 버튼 클릭
+  const handleNewEquipment = () => {
+    setEditingEquipment(null)
+    setIsEquipmentModalOpen(true)
+  }
+
+  // 수정 버튼 클릭
+  const handleEditEquipment = (equipment: Equipment) => {
+    setEditingEquipment(equipment)
+    setIsEquipmentModalOpen(true)
+  }
+
+  // 삭제 버튼 클릭
+  const handleDeleteClick = (id: string) => {
+    setDeletingEquipmentId(id)
+    setIsDeleteModalOpen(true)
+  }
+
+  // 장비 저장 (신규/수정)
+  const handleSaveEquipment = async (data: EquipmentInsert) => {
+    if (editingEquipment) {
+      await updateEquipment(editingEquipment.id, data)
+    } else {
+      // 신규: ID 생성 로직 필요
+      const prefix = data.location === '메인 스튜디오' ? 'MS' : data.location === '1인 스튜디오 A' ? '1A' : '1B'
+      const existingIds = allEquipments
+        .filter((eq) => eq.id.startsWith(prefix))
+        .map((eq) => {
+          const match = eq.id.match(new RegExp(`^${prefix}-(\\d+)`))
+          return match ? parseInt(match[1]) : 0
+        })
+      const nextNum = Math.max(0, ...existingIds) + 1
+      const newId = `${prefix}-${String(nextNum).padStart(3, '0')}`
+      await createEquipment(newId, data)
+    }
+    await loadData()
+  }
+
+  // 삭제 확인
+  const handleConfirmDelete = async () => {
+    if (!deletingEquipmentId) return
+
+    setDeleteLoading(true)
+    try {
+      await deleteEquipment(deletingEquipmentId)
+      setIsDeleteModalOpen(false)
+      setDeletingEquipmentId(null)
+      await loadData()
+    } catch (err) {
+      console.error('Delete failed:', err)
+    } finally {
+      setDeleteLoading(false)
+    }
+  }
+
   return (
     <AdminLayout>
       <div className="h-full flex flex-col overflow-hidden">
@@ -149,22 +213,33 @@ export default function EquipmentsPage() {
               </p>
             </div>
 
-            {/* Data Type Tabs */}
-            <div className="flex gap-1 p-1 rounded-xl bg-white/5">
-              {DATA_TYPES.map((type) => (
-                <button
-                  key={type.value}
-                  onClick={() => setDataType(type.value)}
-                  className={cn(
-                    'px-4 py-2 text-sm rounded-lg transition-all',
-                    dataType === type.value
-                      ? 'bg-purple-500/30 text-white'
-                      : 'text-gray-400 hover:text-white hover:bg-white/5'
-                  )}
-                >
-                  {type.label}
-                </button>
-              ))}
+            <div className="flex items-center gap-3">
+              {/* New Equipment Button */}
+              <button
+                onClick={handleNewEquipment}
+                className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-xl transition-colors"
+              >
+                <Plus className="w-4 h-4" />
+                새 장비
+              </button>
+
+              {/* Data Type Tabs */}
+              <div className="flex gap-1 p-1 rounded-xl bg-white/5">
+                {DATA_TYPES.map((type) => (
+                  <button
+                    key={type.value}
+                    onClick={() => setDataType(type.value)}
+                    className={cn(
+                      'px-4 py-2 text-sm rounded-lg transition-all',
+                      dataType === type.value
+                        ? 'bg-purple-500/30 text-white'
+                        : 'text-gray-400 hover:text-white hover:bg-white/5'
+                    )}
+                  >
+                    {type.label}
+                  </button>
+                ))}
+              </div>
             </div>
           </div>
 
@@ -374,6 +449,24 @@ export default function EquipmentsPage() {
                     {equipment.notes && (
                       <p className="text-xs text-yellow-400/80 mt-1 truncate">{equipment.notes}</p>
                     )}
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-2 mt-3 pt-2 border-t border-white/5">
+                      <button
+                        onClick={() => handleEditEquipment(equipment)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs text-gray-400 hover:text-white bg-white/5 hover:bg-white/10 rounded-lg transition-colors"
+                      >
+                        <Edit2 className="w-3 h-3" />
+                        수정
+                      </button>
+                      <button
+                        onClick={() => handleDeleteClick(equipment.id)}
+                        className="flex-1 flex items-center justify-center gap-1 px-2 py-1.5 text-xs text-red-400 hover:text-red-300 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors"
+                      >
+                        <Trash2 className="w-3 h-3" />
+                        삭제
+                      </button>
+                    </div>
                   </div>
                 </GlassCard>
               )
@@ -390,6 +483,32 @@ export default function EquipmentsPage() {
           )}
         </div>
       </div>
+
+      {/* 장비 모달 */}
+      <EquipmentModal
+        isOpen={isEquipmentModalOpen}
+        onClose={() => {
+          setIsEquipmentModalOpen(false)
+          setEditingEquipment(null)
+        }}
+        onSubmit={handleSaveEquipment}
+        equipment={editingEquipment}
+      />
+
+      {/* 삭제 확인 모달 */}
+      <ConfirmModal
+        isOpen={isDeleteModalOpen}
+        onClose={() => {
+          setIsDeleteModalOpen(false)
+          setDeletingEquipmentId(null)
+        }}
+        onConfirm={handleConfirmDelete}
+        title="장비 삭제"
+        message="정말 이 장비를 삭제하시겠습니까? 이 작업은 되돌릴 수 없습니다."
+        confirmText="삭제"
+        variant="danger"
+        loading={deleteLoading}
+      />
     </AdminLayout>
   )
 }
