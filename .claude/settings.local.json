@@ -14,7 +14,17 @@
       "Bash(npm run dev:*)",
       "Bash(curl:*)",
       "Bash(powershell -Command:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nInitial commit: 종로 스튜디오 대시보드\n\n- Next.js 15 + Tailwind CSS + Supabase 구조\n- Style C 글래스모피즘 다크 테마 적용\n- 대시보드, 예약관리, 캘린더, 장비관리, 통계 페이지\n- 385건 예약 데이터 JSON 파싱\n- KPI 통계 \\(가동률, 멤버십, 장기이용자\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git push:*)",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfeat: UI 개선 및 실시간 현황 페이지 추가\n\n- 실시간 현황\\(/live\\) 페이지 신규 추가: 타임라인 뷰, 현재 시간 표시\n- 예약 관리 페이지 개선: 아코디언 상세보기, sticky 헤더\n- 캘린더 페이지 개선: 전체 높이 레이아웃, 투명 배경, 기본값 오늘\n- KPI 섹션 개선: 달성률 우상단 표시, 상태 뱃지 추가\n- 드롭다운 스타일 개선: 다크 테마, 호버/포커스 상태\n- 사이드바에 실시간 현황 메뉴 추가\n- README.md 추가\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit -m \"$\\(cat <<''EOF''\nfix: 전체 페이지 sticky header 레이아웃 적용 및 README 진행상황 추가\n\n- 대시보드: 인사말 섹션 고정, 콘텐츠만 스크롤\n- 장비 관리: 검색/필터 영역 고정, 장비 목록만 스크롤\n- 통계: 제목/날짜 선택 고정, 통계 콘텐츠만 스크롤\n- README: 개발 진행 상황 테이블 추가 \\(전체 100% 완료\\)\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
+      "Bash(git commit:*)",
+      "Bash(npx tsc:*)",
+      "Bash(node scripts/parseEquipment.js:*)",
+      "Bash(taskkill /F /PID 16284)",
+      "Bash(npx tsx:*)",
+      "Bash(npx next build)"
     ]
   }
 }

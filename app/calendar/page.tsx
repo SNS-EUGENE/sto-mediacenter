@@ -1,13 +1,15 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
 import StudioBadge from '@/components/ui/StudioBadge'
-import { allBookings } from '@/lib/data'
+import Select from '@/components/ui/Select'
+import { getBookingsByDateRange } from '@/lib/supabase/queries'
 import { STUDIOS } from '@/lib/constants'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { cn, timeSlotsToString } from '@/lib/utils'
+import type { BookingWithStudio } from '@/types/supabase'
 
 // 요일 이름
 const WEEKDAYS = ['일', '월', '화', '수', '목', '금', '토']
@@ -46,31 +48,57 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string>(formatDateStr(today.getFullYear(), today.getMonth(), today.getDate()))
   const [selectedStudio, setSelectedStudio] = useState<number | null>(null)
 
+  // Supabase 데이터 상태
+  const [monthBookings, setMonthBookings] = useState<BookingWithStudio[]>([])
+  const [loading, setLoading] = useState(true)
+
   // 달력 날짜 배열
   const calendarDays = useMemo(
     () => generateCalendarDays(currentYear, currentMonth),
     [currentYear, currentMonth]
   )
 
+  // 해당 월의 예약 데이터 로드
+  const loadMonthBookings = useCallback(async () => {
+    setLoading(true)
+    try {
+      const firstDay = new Date(currentYear, currentMonth, 1)
+      const lastDay = new Date(currentYear, currentMonth + 1, 0)
+      const startDate = formatDateStr(firstDay.getFullYear(), firstDay.getMonth(), firstDay.getDate())
+      const endDate = formatDateStr(lastDay.getFullYear(), lastDay.getMonth(), lastDay.getDate())
+
+      const data = await getBookingsByDateRange(startDate, endDate)
+      setMonthBookings(data)
+    } catch (err) {
+      console.error('Failed to load bookings:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [currentYear, currentMonth])
+
+  useEffect(() => {
+    loadMonthBookings()
+  }, [loadMonthBookings])
+
   // 날짜별 예약 카운트 맵
   const bookingCountMap = useMemo(() => {
     const map: Record<string, number> = {}
-    allBookings
-      .filter((b) => b.statusCode !== 'CANCELLED')
-      .filter((b) => !selectedStudio || b.studioId === selectedStudio)
+    monthBookings
+      .filter((b) => b.status !== 'CANCELLED')
+      .filter((b) => !selectedStudio || b.studio_id === selectedStudio)
       .forEach((booking) => {
-        map[booking.rentalDate] = (map[booking.rentalDate] || 0) + 1
+        map[booking.rental_date] = (map[booking.rental_date] || 0) + 1
       })
     return map
-  }, [selectedStudio])
+  }, [monthBookings, selectedStudio])
 
   // 선택된 날짜의 예약 목록
   const selectedDateBookings = useMemo(() => {
-    return allBookings
-      .filter((b) => b.rentalDate === selectedDate)
-      .filter((b) => !selectedStudio || b.studioId === selectedStudio)
-      .sort((a, b) => a.startHour - b.startHour)
-  }, [selectedDate, selectedStudio])
+    return monthBookings
+      .filter((b) => b.rental_date === selectedDate)
+      .filter((b) => !selectedStudio || b.studio_id === selectedStudio)
+      .sort((a, b) => (a.time_slots?.[0] || 0) - (b.time_slots?.[0] || 0))
+  }, [monthBookings, selectedDate, selectedStudio])
 
   // 이전/다음 달 이동
   const goToPrevMonth = () => {
@@ -112,18 +140,18 @@ export default function CalendarPage() {
           </div>
 
           {/* Studio Filter */}
-          <select
-            value={selectedStudio || ''}
-            onChange={(e) => setSelectedStudio(e.target.value ? Number(e.target.value) : null)}
-            className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
-          >
-            <option value="">전체 스튜디오</option>
-            {STUDIOS.map((studio) => (
-              <option key={studio.id} value={studio.id}>
-                {studio.alias}
-              </option>
-            ))}
-          </select>
+          <Select
+            value={selectedStudio?.toString() || ''}
+            onChange={(val) => setSelectedStudio(val ? Number(val) : null)}
+            placeholder="전체 스튜디오"
+            options={[
+              { value: '', label: '전체 스튜디오' },
+              ...STUDIOS.map((studio) => ({
+                value: studio.id.toString(),
+                label: studio.alias,
+              })),
+            ]}
+          />
         </div>
 
         <div className="flex-1 min-h-0 grid lg:grid-cols-3 gap-4">
@@ -229,7 +257,11 @@ export default function CalendarPage() {
             })}
           </h3>
 
-          {selectedDateBookings.length > 0 ? (
+          {loading ? (
+            <div className="flex-1 flex items-center justify-center">
+              <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+            </div>
+          ) : selectedDateBookings.length > 0 ? (
             <div className="flex-1 min-h-0 space-y-3 overflow-y-auto scrollbar-thin">
               {selectedDateBookings.map((booking) => (
                 <div
@@ -237,16 +269,16 @@ export default function CalendarPage() {
                   className="p-3 rounded-xl bg-white/[0.03] border border-white/10 hover:bg-white/[0.05] transition-colors"
                 >
                   <div className="flex items-center justify-between mb-2">
-                    <StudioBadge studioId={booking.studioId} />
-                    <span className="text-xs text-purple-400 font-medium">{booking.timeDisplay}</span>
+                    <StudioBadge studioId={booking.studio_id} />
+                    <span className="text-xs text-purple-400 font-medium">{timeSlotsToString(booking.time_slots || [])}</span>
                   </div>
-                  <p className="text-sm text-white font-medium">{booking.applicantName}</p>
+                  <p className="text-sm text-white font-medium">{booking.applicant_name}</p>
                   {booking.organization && (
                     <p className="text-xs text-gray-400">{booking.organization}</p>
                   )}
-                  {booking.eventName && (
+                  {booking.event_name && (
                     <p className="text-xs text-gray-500 mt-1 truncate">
-                      {booking.eventName}
+                      {booking.event_name}
                     </p>
                   )}
                 </div>

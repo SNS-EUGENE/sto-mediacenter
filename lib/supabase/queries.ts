@@ -139,14 +139,60 @@ export async function updateBookingStatus(
 // Equipments
 // =============================================
 
-export async function getEquipments(): Promise<Equipment[]> {
-  const { data, error } = await supabase
+export interface EquipmentFilters {
+  location?: string
+  category?: string
+  status?: string
+  isMaterial?: boolean
+  searchTerm?: string
+}
+
+export async function getEquipments(filters?: EquipmentFilters): Promise<Equipment[]> {
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let query: any = supabase
     .from('equipments')
     .select('*')
-    .order('name')
+
+  // Apply filters
+  if (filters?.location) {
+    query = query.eq('location', filters.location)
+  }
+
+  if (filters?.category) {
+    query = query.eq('category', filters.category)
+  }
+
+  if (filters?.status) {
+    query = query.eq('status', filters.status)
+  }
+
+  if (filters?.isMaterial !== undefined) {
+    query = query.eq('is_material', filters.isMaterial)
+  }
+
+  if (filters?.searchTerm) {
+    query = query.or(
+      `name.ilike.%${filters.searchTerm}%,id.ilike.%${filters.searchTerm}%,category.ilike.%${filters.searchTerm}%`
+    )
+  }
+
+  query = query.order('id')
+
+  const { data, error } = await query
 
   if (error) throw error
   return (data || []) as Equipment[]
+}
+
+export async function getEquipmentById(id: string): Promise<Equipment | null> {
+  const { data, error } = await supabase
+    .from('equipments')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data as Equipment
 }
 
 export async function updateEquipmentStatus(
@@ -164,6 +210,40 @@ export async function updateEquipmentStatus(
 
   if (error) throw error
   return data as Equipment
+}
+
+export async function getEquipmentStats() {
+  const { data, error } = await supabase
+    .from('equipments')
+    .select('status, location, is_material')
+
+  if (error) throw error
+
+  const stats = {
+    total: data?.length || 0,
+    byStatus: {} as Record<string, number>,
+    byLocation: {} as Record<string, number>,
+    equipmentCount: 0,
+    materialCount: 0,
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(data as any[])?.forEach((item) => {
+    // Count by status
+    stats.byStatus[item.status] = (stats.byStatus[item.status] || 0) + 1
+
+    // Count by location
+    stats.byLocation[item.location] = (stats.byLocation[item.location] || 0) + 1
+
+    // Count equipment vs materials
+    if (item.is_material) {
+      stats.materialCount++
+    } else {
+      stats.equipmentCount++
+    }
+  })
+
+  return stats
 }
 
 // =============================================

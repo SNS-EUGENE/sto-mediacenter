@@ -36,19 +36,32 @@ CREATE TYPE equipment_status AS ENUM (
 -- TABLES
 -- =============================================
 
--- 1. 스튜디오 (Seed Data)
+-- 1. 스튜디오 (Seed Data) - 계층 구조 지원
 CREATE TABLE studios (
   id SERIAL PRIMARY KEY,
+  parent_id INT REFERENCES studios(id) ON DELETE SET NULL,
   name TEXT NOT NULL UNIQUE,
+  alias TEXT,                    -- 짧은 별칭 (메인, A, B 등)
   description TEXT,
+  capacity INT DEFAULT 1,        -- 수용 인원
+  is_category BOOLEAN DEFAULT FALSE, -- 카테고리(그룹)인지 여부
+  sort_order INT DEFAULT 0,      -- 정렬 순서
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 스튜디오 초기 데이터 (대형 스튜디오, 1인 스튜디오 A, 1인 스튜디오 B)
-INSERT INTO studios (name, description) VALUES
-  ('대형 스튜디오', '다목적 대형 공간, 최대 30인 수용'),
-  ('1인 스튜디오 A', '개인 크리에이터용 소형 스튜디오'),
-  ('1인 스튜디오 B', '개인 크리에이터용 소형 스튜디오');
+-- 스튜디오 초기 데이터 (계층 구조)
+-- 1: 메인 스튜디오 (독립)
+-- 2: 1인 스튜디오 (카테고리)
+-- 3: 스튜디오 A (1인 스튜디오 하위)
+-- 4: 스튜디오 B (1인 스튜디오 하위)
+INSERT INTO studios (id, parent_id, name, alias, description, capacity, is_category, sort_order) VALUES
+  (1, NULL, '메인 스튜디오', '메인', '다목적 대형 공간, 최대 30인 수용', 30, false, 1),
+  (2, NULL, '1인 스튜디오', '1인', '개인 크리에이터용 소형 스튜디오 (A/B)', 0, true, 2),
+  (3, 2, '스튜디오 A', 'A', '개인 크리에이터용 소형 스튜디오', 2, false, 1),
+  (4, 2, '스튜디오 B', 'B', '개인 크리에이터용 소형 스튜디오', 2, false, 2);
+
+-- 시퀀스 값 조정 (다음 ID가 5부터 시작하도록)
+SELECT setval('studios_id_seq', 4);
 
 -- 2. 예약 관리
 CREATE TABLE bookings (
@@ -91,19 +104,26 @@ CREATE INDEX idx_bookings_rental_date ON bookings(rental_date);
 CREATE INDEX idx_bookings_studio_date ON bookings(studio_id, rental_date);
 CREATE INDEX idx_bookings_status ON bookings(status);
 
--- 3. 장비 자산 관리 (예약과 독립적)
+-- 3. 장비/자재 자산 관리 (예약과 독립적)
 CREATE TABLE equipments (
-  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  id TEXT PRIMARY KEY,          -- 일련번호 (MS-001-A 형식)
+  original_index TEXT,          -- 엑셀 원본 연번
 
   -- 장비 정보
-  name TEXT NOT NULL,           -- 장비명 (예: 'Sony A7M3')
-  serial_alias TEXT,            -- 동일 장비 구분 (예: 'A', 'B', 'C')
-  location TEXT,                -- 현재 위치/보관함
+  name TEXT NOT NULL,           -- 장비명/물품명
+  category TEXT NOT NULL,       -- 분류 (Studio Camera System, Lighting System 등)
+  spec TEXT,                    -- 내용 및 사양
+  location TEXT NOT NULL,       -- 위치 (메인 스튜디오, 1인 스튜디오 A/B)
+  sub_location TEXT,            -- 위치 상세 (스튜디오, 조정실, 서버실)
+  quantity INT DEFAULT 1,       -- 수량 (장비=1, 자재=실제수량)
+  unit TEXT DEFAULT 'EA',       -- 단위 (EA, M 등)
+  serial_number TEXT,           -- 제조사 시리얼넘버
 
   -- 상태 관리
   status equipment_status DEFAULT 'NORMAL' NOT NULL,
-  image_url TEXT,               -- 현장 사진 URL
   notes TEXT,                   -- 비고/특이사항
+  is_material BOOLEAN DEFAULT FALSE, -- 자재 여부
+  image_url TEXT,               -- 현장 사진 URL
 
   -- 타임스탬프
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -112,7 +132,9 @@ CREATE TABLE equipments (
 
 -- 장비 조회 최적화를 위한 인덱스
 CREATE INDEX idx_equipments_status ON equipments(status);
-CREATE INDEX idx_equipments_name ON equipments(name);
+CREATE INDEX idx_equipments_location ON equipments(location);
+CREATE INDEX idx_equipments_category ON equipments(category);
+CREATE INDEX idx_equipments_is_material ON equipments(is_material);
 
 -- =============================================
 -- TRIGGERS (자동 updated_at 갱신)
@@ -256,12 +278,11 @@ $$ LANGUAGE plpgsql;
 --   (2, '2026-01-15', ARRAY[14,15], '이영희', '개인', '010-9876-5432', 'YouTube 촬영', '개인 콘텐츠 제작', 1, 'APPLIED');
 
 -- 테스트용 장비 데이터 (Optional)
--- INSERT INTO equipments (name, serial_alias, location, status, notes)
+-- 실제 데이터는 장비 목록.xlsx에서 parseEquipment.js로 생성
+-- INSERT INTO equipments (id, original_index, name, category, spec, location, sub_location, quantity, unit, status, is_material)
 -- VALUES
---   ('Sony A7M3', 'A', '1층 장비실 A-01', 'NORMAL', '렌즈: 24-70mm 포함'),
---   ('Sony A7M3', 'B', '1층 장비실 A-02', 'NORMAL', '렌즈: 24-70mm 포함'),
---   ('조명 스탠드', 'A', '2층 보관함', 'BROKEN', '지지대 균열 발견'),
---   ('무선 마이크', 'A', '1층 장비실 B-05', 'NORMAL', NULL);
+--   ('MS-001-A', '1', '4K Camcoder', 'Studio Camera System', '', '메인 스튜디오', '', 1, 'EA', 'NORMAL', false),
+--   ('MS-001-B', '1', '4K Camcoder', 'Studio Camera System', '', '메인 스튜디오', '', 1, 'EA', 'NORMAL', false);
 
 -- =============================================
 -- COMPLETION

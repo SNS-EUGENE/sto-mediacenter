@@ -137,17 +137,19 @@ export function getEquipmentStatusColor(status: string): {
 }
 
 export function getStudioId(studioName: string): number {
-  if (studioName.includes('대형')) return 1
-  if (studioName.includes('#1') || studioName.includes('A')) return 2
-  if (studioName.includes('#2') || studioName.includes('B')) return 3
+  if (studioName.includes('대형') || studioName.includes('메인')) return 1
+  // 1인 스튜디오 A
+  if (studioName.includes('1인') && (studioName.includes('#1') || studioName.includes('A'))) return 3
+  // 1인 스튜디오 B
+  if (studioName.includes('1인') && (studioName.includes('#2') || studioName.includes('B'))) return 4
   return 1
 }
 
 export function getStudioName(studioId: number): string {
   switch (studioId) {
-    case 1: return '대형 스튜디오'
-    case 2: return '1인 스튜디오 A'
-    case 3: return '1인 스튜디오 B'
+    case 1: return '메인 스튜디오'
+    case 3: return '1인 스튜디오 A'
+    case 4: return '1인 스튜디오 B'
     default: return '알 수 없음'
   }
 }

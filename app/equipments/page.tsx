@@ -1,50 +1,112 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
 import StatusBadge from '@/components/ui/StatusBadge'
-import {
-  equipmentData,
-  getEquipmentStatusCounts,
-} from '@/lib/data/equipmentData'
+import Select from '@/components/ui/Select'
+import { getEquipments, getEquipmentStats } from '@/lib/supabase/queries'
 import { EQUIPMENT_STATUS_LABELS } from '@/lib/constants'
-import { Search, Camera, Lightbulb, Mic, Video, Package } from 'lucide-react'
+import { Search, Camera, Lightbulb, Mic, Package, Monitor, Wifi, Cable, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { Equipment } from '@/types/supabase'
 
-// 장비 카테고리 아이콘
-function getEquipmentIcon(name: string) {
-  const nameLower = name.toLowerCase()
-  if (nameLower.includes('sony') || nameLower.includes('cam')) return Camera
-  if (nameLower.includes('aputure') || nameLower.includes('light') || nameLower.includes('elgato') || nameLower.includes('led')) return Lightbulb
-  if (nameLower.includes('rode') || nameLower.includes('mic')) return Mic
-  if (nameLower.includes('dji') || nameLower.includes('gimbal') || nameLower.includes('atomos')) return Video
+// 카테고리별 아이콘
+function getCategoryIcon(category: string) {
+  const cat = category.toLowerCase()
+  if (cat.includes('camera')) return Camera
+  if (cat.includes('lighting')) return Lightbulb
+  if (cat.includes('audio')) return Mic
+  if (cat.includes('switcher') || cat.includes('monitor')) return Monitor
+  if (cat.includes('intercom') || cat.includes('network')) return Wifi
+  if (cat.includes('installation')) return Cable
   return Package
 }
+
+// 데이터 타입 옵션
+const DATA_TYPES = [
+  { value: 'all', label: '전체' },
+  { value: 'equipment', label: '장비만' },
+  { value: 'material', label: '자재만' },
+]
 
 export default function EquipmentsPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [selectedStatus, setSelectedStatus] = useState<string | null>(null)
   const [selectedLocation, setSelectedLocation] = useState<string | null>(null)
+  const [selectedCategory, setSelectedCategory] = useState<string | null>(null)
+  const [dataType, setDataType] = useState<string>('equipment')
+
+  // Supabase 데이터 상태
+  const [allEquipments, setAllEquipments] = useState<Equipment[]>([])
+  const [stats, setStats] = useState<{
+    total: number
+    byStatus: Record<string, number>
+    byLocation: Record<string, number>
+    equipmentCount: number
+    materialCount: number
+  } | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  // 데이터 로드
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const [equipments, equipmentStats] = await Promise.all([
+        getEquipments(),
+        getEquipmentStats(),
+      ])
+      setAllEquipments(equipments)
+      setStats(equipmentStats)
+    } catch (err) {
+      console.error('Failed to load equipments:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
 
   // 상태별 카운트
-  const statusCounts = getEquipmentStatusCounts()
+  const statusCounts = stats?.byStatus || {}
 
   // 위치 목록
   const locations = useMemo(() => {
-    const locs = new Set(equipmentData.map((eq) => eq.location))
-    return Array.from(locs)
-  }, [])
+    const locs = new Set(allEquipments.map((eq) => eq.location))
+    return Array.from(locs).sort()
+  }, [allEquipments])
+
+  // 카테고리 목록
+  const categories = useMemo(() => {
+    const cats = new Set(allEquipments.map((eq) => eq.category))
+    return Array.from(cats).filter(Boolean).sort()
+  }, [allEquipments])
+
+  // 장비만 / 자재만
+  const equipmentOnly = useMemo(() => allEquipments.filter((eq) => !eq.is_material), [allEquipments])
+  const materialsOnly = useMemo(() => allEquipments.filter((eq) => eq.is_material), [allEquipments])
 
   // 필터링된 장비 목록
   const filteredEquipments = useMemo(() => {
-    return equipmentData.filter((eq) => {
+    // 데이터 타입 선택
+    let baseData = allEquipments
+    if (dataType === 'equipment') {
+      baseData = equipmentOnly
+    } else if (dataType === 'material') {
+      baseData = materialsOnly
+    }
+
+    return baseData.filter((eq) => {
       // 검색어 필터
       if (searchTerm) {
         const search = searchTerm.toLowerCase()
         const matchesSearch =
           eq.name.toLowerCase().includes(search) ||
-          eq.serialAlias.toLowerCase().includes(search) ||
+          eq.id.toLowerCase().includes(search) ||
+          (eq.category?.toLowerCase().includes(search) ?? false) ||
+          (eq.spec?.toLowerCase().includes(search) ?? false) ||
           eq.location.toLowerCase().includes(search)
         if (!matchesSearch) return false
       }
@@ -59,13 +121,19 @@ export default function EquipmentsPage() {
         return false
       }
 
+      // 카테고리 필터
+      if (selectedCategory && eq.category !== selectedCategory) {
+        return false
+      }
+
       return true
     })
-  }, [searchTerm, selectedStatus, selectedLocation])
+  }, [searchTerm, selectedStatus, selectedLocation, selectedCategory, dataType, allEquipments, equipmentOnly, materialsOnly])
 
   // 이슈가 있는 장비 (정상이 아닌 것)
-  const issueEquipments = equipmentData.filter(
-    (eq) => eq.status !== 'NORMAL' && eq.status !== 'REPAIRED'
+  const issueEquipments = useMemo(() =>
+    equipmentOnly.filter((eq) => eq.status !== 'NORMAL' && eq.status !== 'REPAIRED'),
+    [equipmentOnly]
   )
 
   return (
@@ -77,8 +145,26 @@ export default function EquipmentsPage() {
             <div>
               <h1 className="text-xl lg:text-2xl font-bold text-white mb-1">장비 관리</h1>
               <p className="text-sm text-gray-500">
-                총 {equipmentData.length}개의 장비
+                총 {allEquipments.length}개 (장비 {equipmentOnly.length}개, 자재 {materialsOnly.length}개)
               </p>
+            </div>
+
+            {/* Data Type Tabs */}
+            <div className="flex gap-1 p-1 rounded-xl bg-white/5">
+              {DATA_TYPES.map((type) => (
+                <button
+                  key={type.value}
+                  onClick={() => setDataType(type.value)}
+                  className={cn(
+                    'px-4 py-2 text-sm rounded-lg transition-all',
+                    dataType === type.value
+                      ? 'bg-purple-500/30 text-white'
+                      : 'text-gray-400 hover:text-white hover:bg-white/5'
+                  )}
+                >
+                  {type.label}
+                </button>
+              ))}
             </div>
           </div>
 
@@ -113,7 +199,7 @@ export default function EquipmentsPage() {
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input
                 type="text"
-                placeholder="장비명, 시리얼, 위치 검색..."
+                placeholder="장비명, ID, 카테고리, 위치 검색..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="w-full bg-white/5 border border-white/10 rounded-xl pl-10 pr-4 py-2.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 transition-colors"
@@ -121,28 +207,43 @@ export default function EquipmentsPage() {
             </div>
 
             {/* Location Filter */}
-            <select
+            <Select
               value={selectedLocation || ''}
-              onChange={(e) => setSelectedLocation(e.target.value || null)}
-              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
-            >
-              <option value="">전체 위치</option>
-              {locations.map((loc) => (
-                <option key={loc} value={loc}>
-                  {loc}
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setSelectedLocation(val || null)}
+              placeholder="전체 위치"
+              options={[
+                { value: '', label: '전체 위치' },
+                ...locations.map((loc) => ({
+                  value: loc,
+                  label: loc,
+                })),
+              ]}
+            />
+
+            {/* Category Filter */}
+            <Select
+              value={selectedCategory || ''}
+              onChange={(val) => setSelectedCategory(val || null)}
+              placeholder="전체 카테고리"
+              options={[
+                { value: '', label: '전체 카테고리' },
+                ...categories.map((cat) => ({
+                  value: cat,
+                  label: cat,
+                })),
+              ]}
+            />
 
             {/* Clear Filters */}
-            {(selectedStatus || selectedLocation || searchTerm) && (
+            {(selectedStatus || selectedLocation || selectedCategory || searchTerm) && (
               <button
                 onClick={() => {
                   setSelectedStatus(null)
                   setSelectedLocation(null)
+                  setSelectedCategory(null)
                   setSearchTerm('')
                 }}
-                className="px-4 py-2.5 text-sm text-red-400 hover:text-red-300 transition-colors"
+                className="px-4 py-2.5 text-sm text-red-400 hover:text-red-300 transition-colors whitespace-nowrap"
               >
                 초기화
               </button>
@@ -151,15 +252,23 @@ export default function EquipmentsPage() {
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+        <div className="flex-1 min-h-0 overflow-y-auto pr-2 scrollbar-thin">
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+              <span className="ml-2 text-gray-400">로딩 중...</span>
+            </div>
+          )}
+
           {/* Issue Alert */}
-          {issueEquipments.length > 0 && (
+          {!loading && issueEquipments.length > 0 && dataType !== 'material' && (
             <GlassCard className="mb-4 border-yellow-500/20 bg-yellow-500/5">
               <h3 className="text-sm font-semibold text-yellow-400 mb-3">
                 점검 필요 장비 ({issueEquipments.length}개)
               </h3>
               <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                {issueEquipments.map((eq) => (
+                {issueEquipments.slice(0, 6).map((eq) => (
                   <div
                     key={eq.id}
                     className="flex items-center gap-3 p-2 rounded-lg bg-white/[0.02]"
@@ -167,18 +276,33 @@ export default function EquipmentsPage() {
                     <StatusBadge status={eq.status} type="equipment" />
                     <div className="flex-1 min-w-0">
                       <p className="text-sm text-white truncate">{eq.name}</p>
-                      <p className="text-xs text-gray-500">{eq.serialAlias}</p>
+                      <p className="text-xs text-gray-500">{eq.id}</p>
                     </div>
                   </div>
                 ))}
+                {issueEquipments.length > 6 && (
+                  <div className="flex items-center justify-center p-2 text-xs text-gray-500">
+                    +{issueEquipments.length - 6}개 더
+                  </div>
+                )}
               </div>
             </GlassCard>
           )}
 
+          {/* Results Count */}
+          {!loading && (
+            <div className="flex items-center justify-between mb-3">
+              <p className="text-sm text-gray-500">
+                {filteredEquipments.length}개 표시
+              </p>
+            </div>
+          )}
+
           {/* Equipment Grid */}
-          <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {!loading && (
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
             {filteredEquipments.map((equipment) => {
-              const Icon = getEquipmentIcon(equipment.name)
+              const Icon = getCategoryIcon(equipment.category)
 
               return (
                 <GlassCard
@@ -198,6 +322,15 @@ export default function EquipmentsPage() {
                     )}
                   />
 
+                  {/* Material Badge */}
+                  {equipment.is_material && (
+                    <div className="absolute top-2 right-2">
+                      <span className="px-1.5 py-0.5 text-[10px] rounded bg-cyan-500/20 text-cyan-400">
+                        자재
+                      </span>
+                    </div>
+                  )}
+
                   <div className="flex items-start gap-3">
                     <div className="p-2.5 rounded-xl bg-white/5">
                       <Icon className="w-5 h-5 text-gray-400" />
@@ -206,32 +339,52 @@ export default function EquipmentsPage() {
                       <p className="text-sm font-medium text-white truncate">
                         {equipment.name}
                       </p>
-                      <p className="text-xs text-gray-500">{equipment.serialAlias}</p>
+                      <p className="text-xs text-purple-400 font-mono">{equipment.id}</p>
                     </div>
                   </div>
 
+                  {/* Spec */}
+                  {equipment.spec && (
+                    <p className="text-xs text-gray-400 mt-2 truncate">{equipment.spec}</p>
+                  )}
+
                   <div className="mt-3 pt-3 border-t border-white/5">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-xs text-gray-500">{equipment.location}</span>
+                      <div className="flex-1 min-w-0">
+                        <span className="text-xs text-gray-500">{equipment.location}</span>
+                        {equipment.sub_location && (
+                          <span className="text-xs text-gray-600"> · {equipment.sub_location}</span>
+                        )}
+                      </div>
                       <StatusBadge status={equipment.status} type="equipment" />
                     </div>
-                    {equipment.notes && (
-                      <p className="text-xs text-gray-400 truncate">{equipment.notes}</p>
-                    )}
-                    {equipment.lastChecked && (
-                      <p className="text-[10px] text-gray-600 mt-1">
-                        최근 점검: {equipment.lastChecked}
+
+                    {/* Quantity for materials */}
+                    {equipment.is_material && (equipment.quantity ?? 0) > 1 && (
+                      <p className="text-xs text-gray-400">
+                        수량: {equipment.quantity} {equipment.unit}
                       </p>
+                    )}
+
+                    {/* Category */}
+                    <p className="text-[10px] text-gray-600 mt-1 truncate">
+                      {equipment.category}
+                    </p>
+
+                    {equipment.notes && (
+                      <p className="text-xs text-yellow-400/80 mt-1 truncate">{equipment.notes}</p>
                     )}
                   </div>
                 </GlassCard>
               )
             })}
-          </div>
+            </div>
+          )}
 
           {/* Empty State */}
-          {filteredEquipments.length === 0 && (
+          {!loading && filteredEquipments.length === 0 && (
             <GlassCard className="text-center py-12">
+              <Package className="w-12 h-12 text-gray-600 mx-auto mb-3" />
               <p className="text-gray-500">검색 결과가 없습니다</p>
             </GlassCard>
           )}

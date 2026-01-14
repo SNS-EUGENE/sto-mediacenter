@@ -1,13 +1,14 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
-import { allBookings } from '@/lib/data'
-import { calculateStudioStats } from '@/lib/data/bookingParser'
-import { STUDIOS, BOOKING_STATUS_LABELS } from '@/lib/constants'
-import { Calendar, TrendingUp, Clock, Users, BarChart3, Target, Award, Building2 } from 'lucide-react'
+import Select from '@/components/ui/Select'
+import { getBookingsByDateRange } from '@/lib/supabase/queries'
+import { STUDIOS } from '@/lib/constants'
+import { Calendar, TrendingUp, Clock, Users, Target, Award, Building2, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import type { BookingWithStudio } from '@/types/supabase'
 
 // KPI 목표 및 계산
 const KPI_TARGETS = {
@@ -17,16 +18,11 @@ const KPI_TARGETS = {
 }
 
 // 연간 통계 계산
-function getYearlyStats(bookings: typeof allBookings, year: number) {
-  const startDate = `${year}-01-01`
-  const endDate = `${year}-12-31`
-
-  const yearBookings = bookings.filter(
-    (b) => b.rentalDate >= startDate && b.rentalDate <= endDate && b.statusCode !== 'CANCELLED'
-  )
+function getYearlyStats(bookings: BookingWithStudio[]) {
+  const yearBookings = bookings.filter((b) => b.status !== 'CANCELLED')
 
   // 고유 예약자 수 (멤버십 근사치)
-  const uniqueApplicants = new Set(yearBookings.map(b => b.applicantName)).size
+  const uniqueApplicants = new Set(yearBookings.map(b => b.applicant_name)).size
 
   // 고유 기관 수 (협약 근사치)
   const organizations = yearBookings
@@ -42,27 +38,21 @@ function getYearlyStats(bookings: typeof allBookings, year: number) {
 }
 
 // 월별 통계 계산
-function getMonthlyStats(bookings: typeof allBookings, year: number, month: number) {
-  const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`
-  const lastDay = new Date(year, month + 1, 0).getDate()
-  const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`
+function getMonthlyStats(bookings: BookingWithStudio[]) {
+  const monthBookings = bookings.filter((b) => b.status !== 'CANCELLED')
 
-  const monthBookings = bookings.filter(
-    (b) => b.rentalDate >= startDate && b.rentalDate <= endDate && b.statusCode !== 'CANCELLED'
-  )
-
-  const totalHours = monthBookings.reduce((sum, b) => sum + (b.endHour - b.startHour), 0)
+  const totalHours = monthBookings.reduce((sum, b) => sum + (b.time_slots?.length || 0), 0)
 
   // 상태별 카운트
   const statusCounts: Record<string, number> = {}
   monthBookings.forEach((b) => {
-    statusCounts[b.statusCode] = (statusCounts[b.statusCode] || 0) + 1
+    statusCounts[b.status] = (statusCounts[b.status] || 0) + 1
   })
 
   // 스튜디오별 카운트
   const studioCounts: Record<number, number> = {}
   monthBookings.forEach((b) => {
-    studioCounts[b.studioId] = (studioCounts[b.studioId] || 0) + 1
+    studioCounts[b.studio_id] = (studioCounts[b.studio_id] || 0) + 1
   })
 
   return {
@@ -75,56 +65,44 @@ function getMonthlyStats(bookings: typeof allBookings, year: number, month: numb
 }
 
 // 일별 예약 카운트 (히트맵용)
-function getDailyBookingCounts(
-  bookings: typeof allBookings,
-  year: number,
-  month: number
-) {
+function getDailyBookingCounts(bookings: BookingWithStudio[]) {
   const counts: Record<string, number> = {}
-  const startDate = `${year}-${String(month + 1).padStart(2, '0')}-01`
-  const lastDay = new Date(year, month + 1, 0).getDate()
-  const endDate = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`
 
   bookings
-    .filter(
-      (b) =>
-        b.rentalDate >= startDate &&
-        b.rentalDate <= endDate &&
-        b.statusCode !== 'CANCELLED'
-    )
+    .filter((b) => b.status !== 'CANCELLED')
     .forEach((b) => {
-      counts[b.rentalDate] = (counts[b.rentalDate] || 0) + 1
+      counts[b.rental_date] = (counts[b.rental_date] || 0) + 1
     })
 
   return counts
 }
 
 // 시간대별 예약 분포
-function getHourlyDistribution(bookings: typeof allBookings) {
+function getHourlyDistribution(bookings: BookingWithStudio[]) {
   const distribution: Record<number, number> = {}
   for (let h = 9; h <= 17; h++) {
     distribution[h] = 0
   }
 
   bookings
-    .filter((b) => b.statusCode !== 'CANCELLED')
+    .filter((b) => b.status !== 'CANCELLED')
     .forEach((b) => {
-      for (let h = b.startHour; h < b.endHour; h++) {
-        if (distribution[h] !== undefined) {
-          distribution[h]++
+      (b.time_slots || []).forEach((slot) => {
+        if (distribution[slot] !== undefined) {
+          distribution[slot]++
         }
-      }
+      })
     })
 
   return distribution
 }
 
 // 소속별 예약 TOP 10
-function getTopOrganizations(bookings: typeof allBookings, limit: number = 10) {
+function getTopOrganizations(bookings: BookingWithStudio[], limit: number = 10) {
   const counts: Record<string, number> = {}
 
   bookings
-    .filter((b) => b.statusCode !== 'CANCELLED' && b.organization)
+    .filter((b) => b.status !== 'CANCELLED' && b.organization)
     .forEach((b) => {
       const org = b.organization || '개인'
       counts[org] = (counts[org] || 0) + 1
@@ -136,42 +114,88 @@ function getTopOrganizations(bookings: typeof allBookings, limit: number = 10) {
     .map(([name, count]) => ({ name, count }))
 }
 
+// 스튜디오별 가동률 계산
+function calculateStudioStats(bookings: BookingWithStudio[], year: number, month: number) {
+  const daysInMonth = new Date(year, month + 1, 0).getDate()
+  const hoursPerDay = 9 // 9시~18시 = 9시간
+  const maxHoursPerStudio = daysInMonth * hoursPerDay
+
+  return STUDIOS.map((studio) => {
+    const studioBookings = bookings.filter(
+      (b) => b.studio_id === studio.id && b.status !== 'CANCELLED'
+    )
+    const totalHours = studioBookings.reduce((sum, b) => sum + (b.time_slots?.length || 0), 0)
+    const utilizationRate = (totalHours / maxHoursPerStudio) * 100
+
+    return {
+      studioId: studio.id,
+      studioName: studio.name,
+      totalBookings: studioBookings.length,
+      totalHours,
+      utilizationRate,
+    }
+  })
+}
+
 export default function StatisticsPage() {
   const today = new Date()
   const [selectedYear, setSelectedYear] = useState(today.getFullYear())
   const [selectedMonth, setSelectedMonth] = useState(today.getMonth())
 
+  // Supabase 데이터 상태
+  const [yearBookings, setYearBookings] = useState<BookingWithStudio[]>([])
+  const [monthBookings, setMonthBookings] = useState<BookingWithStudio[]>([])
+  const [loading, setLoading] = useState(true)
+
+  // 연간 및 월간 데이터 로드
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const yearStart = `${selectedYear}-01-01`
+      const yearEnd = `${selectedYear}-12-31`
+      const monthStart = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`
+      const lastDay = new Date(selectedYear, selectedMonth + 1, 0).getDate()
+      const monthEnd = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${lastDay}`
+
+      const [yearData, monthData] = await Promise.all([
+        getBookingsByDateRange(yearStart, yearEnd),
+        getBookingsByDateRange(monthStart, monthEnd),
+      ])
+      setYearBookings(yearData)
+      setMonthBookings(monthData)
+    } catch (err) {
+      console.error('Failed to load statistics:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [selectedYear, selectedMonth])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
   // 연간 KPI 통계
   const yearlyStats = useMemo(
-    () => getYearlyStats(allBookings, selectedYear),
-    [selectedYear]
-  )
-
-  // 전년도 통계 (비교용)
-  const prevYearStats = useMemo(
-    () => getYearlyStats(allBookings, selectedYear - 1),
-    [selectedYear]
+    () => getYearlyStats(yearBookings),
+    [yearBookings]
   )
 
   // 선택된 월의 통계
   const monthStats = useMemo(
-    () => getMonthlyStats(allBookings, selectedYear, selectedMonth),
-    [selectedYear, selectedMonth]
+    () => getMonthlyStats(monthBookings),
+    [monthBookings]
   )
 
   // 일별 카운트 (히트맵용)
   const dailyCounts = useMemo(
-    () => getDailyBookingCounts(allBookings, selectedYear, selectedMonth),
-    [selectedYear, selectedMonth]
+    () => getDailyBookingCounts(monthBookings),
+    [monthBookings]
   )
 
   // 스튜디오별 통계
   const studioStats = useMemo(() => {
-    const startDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-01`
-    const lastDay = new Date(selectedYear, selectedMonth + 1, 0).getDate()
-    const endDate = `${selectedYear}-${String(selectedMonth + 1).padStart(2, '0')}-${lastDay}`
-    return calculateStudioStats(allBookings, startDate, endDate)
-  }, [selectedYear, selectedMonth])
+    return calculateStudioStats(monthBookings, selectedYear, selectedMonth)
+  }, [monthBookings, selectedYear, selectedMonth])
 
   // 시간대별 분포
   const hourlyDist = useMemo(
@@ -220,36 +244,40 @@ export default function StatisticsPage() {
 
           {/* Date Selector */}
           <div className="flex items-center gap-2">
-            <select
-              value={selectedYear}
-              onChange={(e) => setSelectedYear(Number(e.target.value))}
-              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
-            >
-              {yearOptions.map((year) => (
-                <option key={year} value={year}>
-                  {year}년
-                </option>
-              ))}
-            </select>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(Number(e.target.value))}
-              className="bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-sm text-white focus:outline-none focus:border-purple-500/50"
-            >
-              {monthOptions.map((month) => (
-                <option key={month} value={month}>
-                  {month + 1}월
-                </option>
-              ))}
-            </select>
+            <Select
+              value={selectedYear.toString()}
+              onChange={(val) => setSelectedYear(Number(val))}
+              options={yearOptions.map((year) => ({
+                value: year.toString(),
+                label: `${year}년`,
+              }))}
+            />
+            <Select
+              value={selectedMonth.toString()}
+              onChange={(val) => setSelectedMonth(Number(val))}
+              options={monthOptions.map((month) => ({
+                value: month.toString(),
+                label: `${month + 1}월`,
+              }))}
+            />
           </div>
         </div>
 
         {/* Scrollable Content */}
         <div className="flex-1 min-h-0 overflow-y-auto pr-2">
+          {/* Loading State */}
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+              <span className="ml-2 text-gray-400">로딩 중...</span>
+            </div>
+          )}
+
           {/* KPI Section */}
-          <GlassCard className="mb-6 border-yellow-500/20">
-        <div className="flex items-center gap-2 mb-6">
+          {!loading && (
+            <>
+              <GlassCard className="mb-6 border-yellow-500/20">
+                <div className="flex items-center gap-2 mb-6">
           <Target className="w-5 h-5 text-yellow-400" />
           <h2 className="text-lg font-semibold text-white">{selectedYear}년 KPI 현황</h2>
           <span className="text-xs text-gray-500 ml-auto">247일 영업일 기준 · 3개 스튜디오 합산</span>
@@ -668,7 +696,9 @@ export default function StatisticsPage() {
             <p className="text-center text-gray-500 py-8">데이터가 없습니다</p>
           )}
         </GlassCard>
-        </div>
+            </div>
+            </>
+          )}
         </div>
       </div>
     </AdminLayout>

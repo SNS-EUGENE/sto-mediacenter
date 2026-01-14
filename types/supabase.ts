@@ -4,7 +4,7 @@
 // =============================================
 
 // Database Enums
-export type BookingStatus = 'APPLIED' | 'PENDING' | 'CONFIRMED' | 'IN_USE' | 'DONE';
+export type BookingStatus = 'APPLIED' | 'PENDING' | 'CONFIRMED' | 'IN_USE' | 'DONE' | 'CANCELLED';
 
 export type EquipmentStatus = 'NORMAL' | 'BROKEN' | 'MALFUNCTION' | 'REPAIRING' | 'REPAIRED';
 
@@ -17,8 +17,13 @@ export type TimeSlot = 9 | 10 | 11 | 12 | 13 | 14 | 15 | 16 | 17;
 
 export interface Studio {
   id: number;
+  parent_id: number | null;      // 상위 스튜디오 ID (계층 구조)
   name: string;
+  alias: string | null;          // 짧은 별칭 (메인, A, B 등)
   description: string | null;
+  capacity: number;              // 수용 인원
+  is_category: boolean;          // 카테고리(그룹)인지 여부
+  sort_order: number;            // 정렬 순서
   created_at: string;
 }
 
@@ -35,18 +40,27 @@ export interface Booking {
   participants_count: number;
   payment_confirmed: boolean;
   status: BookingStatus;
+  fee: number | null; // 이용료
+  cancelled_at: string | null; // 취소 일시
   created_at: string;
   updated_at: string;
 }
 
 export interface Equipment {
-  id: string;
+  id: string; // 일련번호 (MS-001-A 형식)
+  original_index: string; // 엑셀 원본 연번
   name: string;
-  serial_alias: string | null;
-  location: string | null;
+  category: string;
+  spec: string | null;
+  location: string; // 메인 스튜디오, 1인 스튜디오 A/B
+  sub_location: string | null; // 스튜디오, 조정실, 서버실
+  quantity: number;
+  unit: string;
+  serial_number: string | null; // 제조사 시리얼넘버
   status: EquipmentStatus;
-  image_url: string | null;
   notes: string | null;
+  is_material: boolean;
+  image_url: string | null;
   created_at: string;
   updated_at: string;
 }

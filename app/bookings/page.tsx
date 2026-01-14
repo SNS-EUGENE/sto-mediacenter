@@ -1,14 +1,16 @@
 'use client'
 
-import { useState, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
 import StatusBadge from '@/components/ui/StatusBadge'
 import StudioBadge from '@/components/ui/StudioBadge'
-import { allBookings } from '@/lib/data'
+import Select from '@/components/ui/Select'
+import { getBookings } from '@/lib/supabase/queries'
 import { STUDIOS, BOOKING_STATUS_LABELS } from '@/lib/constants'
-import { Search, ChevronLeft, ChevronRight, ChevronDown, Plus, Edit2, Trash2 } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { Search, ChevronLeft, ChevronRight, ChevronDown, Plus, Edit2, Trash2, Loader2 } from 'lucide-react'
+import { cn, timeSlotsToString } from '@/lib/utils'
+import type { BookingWithStudio } from '@/types/supabase'
 
 const ITEMS_PER_PAGE = 20
 
@@ -19,45 +21,44 @@ export default function BookingsPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [expandedId, setExpandedId] = useState<string | null>(null)
 
-  // 필터링된 예약 목록
-  const filteredBookings = useMemo(() => {
-    return allBookings.filter((booking) => {
-      // 검색어 필터
-      if (searchTerm) {
-        const search = searchTerm.toLowerCase()
-        const matchesSearch =
-          (booking.applicantName || '').toLowerCase().includes(search) ||
-          (booking.organization || '').toLowerCase().includes(search) ||
-          (booking.eventName || '').toLowerCase().includes(search)
-        if (!matchesSearch) return false
-      }
+  // Supabase 데이터 상태
+  const [bookings, setBookings] = useState<BookingWithStudio[]>([])
+  const [totalCount, setTotalCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
 
-      // 스튜디오 필터
-      if (selectedStudio && booking.studioId !== selectedStudio) {
-        return false
-      }
+  // 데이터 로드
+  const loadBookings = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const result = await getBookings(
+        {
+          studioId: selectedStudio || undefined,
+          status: selectedStatus ? [selectedStatus] : undefined,
+          searchTerm: searchTerm || undefined,
+        },
+        {
+          page: currentPage,
+          pageSize: ITEMS_PER_PAGE,
+        }
+      )
+      setBookings(result.data)
+      setTotalCount(result.pagination.total)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : '데이터를 불러오는데 실패했습니다')
+    } finally {
+      setLoading(false)
+    }
+  }, [searchTerm, selectedStudio, selectedStatus, currentPage])
 
-      // 상태 필터
-      if (selectedStatus && booking.statusCode !== selectedStatus) {
-        return false
-      }
-
-      return true
-    }).sort((a, b) => {
-      // 예약일 기준 내림차순 정렬
-      if (a.rentalDate !== b.rentalDate) {
-        return b.rentalDate.localeCompare(a.rentalDate)
-      }
-      return a.startHour - b.startHour
-    })
-  }, [searchTerm, selectedStudio, selectedStatus])
+  // 필터나 페이지 변경 시 데이터 다시 로드
+  useEffect(() => {
+    loadBookings()
+  }, [loadBookings])
 
   // 페이지네이션
-  const totalPages = Math.ceil(filteredBookings.length / ITEMS_PER_PAGE)
-  const paginatedBookings = filteredBookings.slice(
-    (currentPage - 1) * ITEMS_PER_PAGE,
-    currentPage * ITEMS_PER_PAGE
-  )
+  const totalPages = Math.ceil(totalCount / ITEMS_PER_PAGE)
 
   // 필터 초기화
   const clearFilters = () => {
@@ -83,7 +84,7 @@ export default function BookingsPage() {
             <div>
               <h1 className="text-xl lg:text-2xl font-bold text-white">예약 관리</h1>
               <p className="text-sm text-gray-500">
-                총 {filteredBookings.length}건
+                총 {totalCount}건
               </p>
             </div>
             <button className="flex items-center gap-2 px-4 py-2 bg-purple-500 hover:bg-purple-600 text-white text-sm font-medium rounded-xl transition-colors">
@@ -110,38 +111,38 @@ export default function BookingsPage() {
             </div>
 
             {/* Studio Filter */}
-            <select
-              value={selectedStudio || ''}
-              onChange={(e) => {
-                setSelectedStudio(e.target.value ? Number(e.target.value) : null)
+            <Select
+              value={selectedStudio?.toString() || ''}
+              onChange={(val) => {
+                setSelectedStudio(val ? Number(val) : null)
                 setCurrentPage(1)
               }}
-              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
-            >
-              <option value="">전체 스튜디오</option>
-              {STUDIOS.map((studio) => (
-                <option key={studio.id} value={studio.id}>
-                  {studio.alias}
-                </option>
-              ))}
-            </select>
+              placeholder="전체 스튜디오"
+              options={[
+                { value: '', label: '전체 스튜디오' },
+                ...STUDIOS.map((studio) => ({
+                  value: studio.id.toString(),
+                  label: studio.alias,
+                })),
+              ]}
+            />
 
             {/* Status Filter */}
-            <select
+            <Select
               value={selectedStatus || ''}
-              onChange={(e) => {
-                setSelectedStatus(e.target.value || null)
+              onChange={(val) => {
+                setSelectedStatus(val || null)
                 setCurrentPage(1)
               }}
-              className="bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50"
-            >
-              <option value="">전체 상태</option>
-              {Object.entries(BOOKING_STATUS_LABELS).map(([code, label]) => (
-                <option key={code} value={code}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              placeholder="전체 상태"
+              options={[
+                { value: '', label: '전체 상태' },
+                ...Object.entries(BOOKING_STATUS_LABELS).map(([code, label]) => ({
+                  value: code,
+                  label: label,
+                })),
+              ]}
+            />
 
             {/* Clear Filters */}
             {hasActiveFilters && (
@@ -172,149 +173,174 @@ export default function BookingsPage() {
 
           {/* Scrollable Content */}
           <div className="flex-1 overflow-y-auto">
+            {/* Loading State */}
+            {loading && (
+              <div className="flex items-center justify-center py-12">
+                <Loader2 className="w-6 h-6 text-purple-400 animate-spin" />
+                <span className="ml-2 text-gray-400">로딩 중...</span>
+              </div>
+            )}
+
+            {/* Error State */}
+            {error && (
+              <div className="text-center py-12">
+                <p className="text-red-400">{error}</p>
+                <button
+                  onClick={loadBookings}
+                  className="mt-2 text-sm text-purple-400 hover:text-purple-300"
+                >
+                  다시 시도
+                </button>
+              </div>
+            )}
+
             {/* Desktop Table */}
-            <div className="hidden lg:block divide-y divide-white/5">
-              {paginatedBookings.map((booking) => (
-                <div key={booking.id}>
-                  {/* Main Row */}
-                  <div
-                    onClick={() => toggleExpand(booking.id)}
-                    className={cn(
-                      'grid grid-cols-[1fr_100px_100px_120px_1fr_100px_50px] gap-4 px-4 py-3 cursor-pointer transition-colors',
-                      'hover:bg-white/[0.03]',
-                      expandedId === booking.id && 'bg-white/[0.03]'
-                    )}
-                  >
-                    <span className="text-sm text-white">{booking.rentalDate}</span>
-                    <span className="text-sm text-gray-400">{booking.timeDisplay}</span>
-                    <div><StudioBadge studioId={booking.studioId} /></div>
-                    <span className="text-sm text-white truncate">{booking.applicantName}</span>
-                    <span className="text-sm text-gray-400 truncate">{booking.eventName || '-'}</span>
-                    <div><StatusBadge status={booking.statusCode} /></div>
-                    <div className="flex items-center justify-center">
-                      <ChevronDown className={cn(
-                        'w-4 h-4 text-gray-500 transition-transform',
-                        expandedId === booking.id && 'rotate-180'
-                      )} />
-                    </div>
-                  </div>
-
-                  {/* Expanded Detail */}
-                  {expandedId === booking.id && (
-                    <div className="px-4 pb-4 bg-white/[0.02] border-t border-white/5">
-                      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">소속</p>
-                          <p className="text-sm text-white">{booking.organization || '-'}</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">인원</p>
-                          <p className="text-sm text-white">{booking.participantsCount}명</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">대관료</p>
-                          <p className="text-sm text-white">{booking.fee.toLocaleString()}원</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">등록일</p>
-                          <p className="text-sm text-white">{booking.createdAt}</p>
-                        </div>
-                        <div className="col-span-2 lg:col-span-4">
-                          <p className="text-xs text-gray-500 mb-1">행사명</p>
-                          <p className="text-sm text-white">{booking.eventName || '-'}</p>
-                        </div>
-                        {booking.cancelledAt && (
-                          <div className="col-span-2 lg:col-span-4">
-                            <p className="text-xs text-gray-500 mb-1">취소일시</p>
-                            <p className="text-sm text-red-400">{booking.cancelledAt}</p>
-                          </div>
-                        )}
-                      </div>
-                      <div className="flex gap-2 pt-3 border-t border-white/5">
-                        <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
-                          <Edit2 className="w-3.5 h-3.5" />
-                          수정
-                        </button>
-                        <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors">
-                          <Trash2 className="w-3.5 h-3.5" />
-                          삭제
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-
-            {/* Mobile List */}
-            <div className="lg:hidden divide-y divide-white/5">
-              {paginatedBookings.map((booking) => (
-                <div key={booking.id}>
-                  <div
-                    onClick={() => toggleExpand(booking.id)}
-                    className={cn(
-                      'p-4 cursor-pointer transition-colors',
-                      'hover:bg-white/[0.03]',
-                      expandedId === booking.id && 'bg-white/[0.03]'
-                    )}
-                  >
-                    <div className="flex items-start justify-between gap-3 mb-2">
-                      <div className="flex items-center gap-2">
-                        <StudioBadge studioId={booking.studioId} />
-                        <span className="text-xs text-gray-500">{booking.rentalDate}</span>
-                        <span className="text-xs text-gray-600">{booking.timeDisplay}</span>
-                      </div>
-                      <div className="flex items-center gap-2">
-                        <StatusBadge status={booking.statusCode} />
+            {!loading && !error && (
+              <div className="hidden lg:block divide-y divide-white/5">
+                {bookings.map((booking) => (
+                  <div key={booking.id}>
+                    {/* Main Row */}
+                    <div
+                      onClick={() => toggleExpand(booking.id)}
+                      className={cn(
+                        'grid grid-cols-[1fr_100px_100px_120px_1fr_100px_50px] gap-4 px-4 py-3 cursor-pointer transition-colors',
+                        'hover:bg-white/[0.03]',
+                        expandedId === booking.id && 'bg-white/[0.03]'
+                      )}
+                    >
+                      <span className="text-sm text-white">{booking.rental_date}</span>
+                      <span className="text-sm text-gray-400">{timeSlotsToString(booking.time_slots || [])}</span>
+                      <div><StudioBadge studioId={booking.studio_id} /></div>
+                      <span className="text-sm text-white truncate">{booking.applicant_name}</span>
+                      <span className="text-sm text-gray-400 truncate">{booking.event_name || '-'}</span>
+                      <div><StatusBadge status={booking.status} /></div>
+                      <div className="flex items-center justify-center">
                         <ChevronDown className={cn(
                           'w-4 h-4 text-gray-500 transition-transform',
                           expandedId === booking.id && 'rotate-180'
                         )} />
                       </div>
                     </div>
-                    <p className="text-sm text-white">{booking.applicantName}</p>
-                    <p className="text-xs text-gray-500 truncate">{booking.eventName || '-'}</p>
-                  </div>
 
-                  {/* Mobile Expanded Detail */}
-                  {expandedId === booking.id && (
-                    <div className="px-4 pb-4 bg-white/[0.02] border-t border-white/5">
-                      <div className="grid grid-cols-2 gap-3 py-3">
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">소속</p>
-                          <p className="text-sm text-white">{booking.organization || '-'}</p>
+                    {/* Expanded Detail */}
+                    {expandedId === booking.id && (
+                      <div className="px-4 pb-4 bg-white/[0.02] border-t border-white/5">
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">소속</p>
+                            <p className="text-sm text-white">{booking.organization || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">인원</p>
+                            <p className="text-sm text-white">{booking.participants_count}명</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">대관료</p>
+                            <p className="text-sm text-white">{(booking.fee || 0).toLocaleString()}원</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">등록일</p>
+                            <p className="text-sm text-white">{booking.created_at?.split('T')[0] || '-'}</p>
+                          </div>
+                          <div className="col-span-2 lg:col-span-4">
+                            <p className="text-xs text-gray-500 mb-1">행사명</p>
+                            <p className="text-sm text-white">{booking.event_name || '-'}</p>
+                          </div>
+                          {booking.cancelled_at && (
+                            <div className="col-span-2 lg:col-span-4">
+                              <p className="text-xs text-gray-500 mb-1">취소일시</p>
+                              <p className="text-sm text-red-400">{booking.cancelled_at}</p>
+                            </div>
+                          )}
                         </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">인원</p>
-                          <p className="text-sm text-white">{booking.participantsCount}명</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">대관료</p>
-                          <p className="text-sm text-white">{booking.fee.toLocaleString()}원</p>
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-500 mb-1">등록일</p>
-                          <p className="text-sm text-white">{booking.createdAt}</p>
+                        <div className="flex gap-2 pt-3 border-t border-white/5">
+                          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-white bg-white/10 hover:bg-white/20 rounded-lg transition-colors">
+                            <Edit2 className="w-3.5 h-3.5" />
+                            수정
+                          </button>
+                          <button className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-red-400 bg-red-500/10 hover:bg-red-500/20 rounded-lg transition-colors">
+                            <Trash2 className="w-3.5 h-3.5" />
+                            삭제
+                          </button>
                         </div>
                       </div>
-                      <div className="flex gap-2 pt-3 border-t border-white/5">
-                        <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-white bg-white/10 rounded-lg">
-                          <Edit2 className="w-3.5 h-3.5" />
-                          수정
-                        </button>
-                        <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-red-400 bg-red-500/10 rounded-lg">
-                          <Trash2 className="w-3.5 h-3.5" />
-                          삭제
-                        </button>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Mobile List */}
+            {!loading && !error && (
+              <div className="lg:hidden divide-y divide-white/5">
+                {bookings.map((booking) => (
+                  <div key={booking.id}>
+                    <div
+                      onClick={() => toggleExpand(booking.id)}
+                      className={cn(
+                        'p-4 cursor-pointer transition-colors',
+                        'hover:bg-white/[0.03]',
+                        expandedId === booking.id && 'bg-white/[0.03]'
+                      )}
+                    >
+                      <div className="flex items-start justify-between gap-3 mb-2">
+                        <div className="flex items-center gap-2">
+                          <StudioBadge studioId={booking.studio_id} />
+                          <span className="text-xs text-gray-500">{booking.rental_date}</span>
+                          <span className="text-xs text-gray-600">{timeSlotsToString(booking.time_slots || [])}</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <StatusBadge status={booking.status} />
+                          <ChevronDown className={cn(
+                            'w-4 h-4 text-gray-500 transition-transform',
+                            expandedId === booking.id && 'rotate-180'
+                          )} />
+                        </div>
                       </div>
+                      <p className="text-sm text-white">{booking.applicant_name}</p>
+                      <p className="text-xs text-gray-500 truncate">{booking.event_name || '-'}</p>
                     </div>
-                  )}
-                </div>
-              ))}
-            </div>
+
+                    {/* Mobile Expanded Detail */}
+                    {expandedId === booking.id && (
+                      <div className="px-4 pb-4 bg-white/[0.02] border-t border-white/5">
+                        <div className="grid grid-cols-2 gap-3 py-3">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">소속</p>
+                            <p className="text-sm text-white">{booking.organization || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">인원</p>
+                            <p className="text-sm text-white">{booking.participants_count}명</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">대관료</p>
+                            <p className="text-sm text-white">{(booking.fee || 0).toLocaleString()}원</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">등록일</p>
+                            <p className="text-sm text-white">{booking.created_at?.split('T')[0] || '-'}</p>
+                          </div>
+                        </div>
+                        <div className="flex gap-2 pt-3 border-t border-white/5">
+                          <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-white bg-white/10 rounded-lg">
+                            <Edit2 className="w-3.5 h-3.5" />
+                            수정
+                          </button>
+                          <button className="flex-1 flex items-center justify-center gap-1.5 px-3 py-2 text-xs text-red-400 bg-red-500/10 rounded-lg">
+                            <Trash2 className="w-3.5 h-3.5" />
+                            삭제
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
 
             {/* Empty State */}
-            {paginatedBookings.length === 0 && (
+            {!loading && !error && bookings.length === 0 && (
               <div className="text-center py-12">
                 <p className="text-gray-500">검색 결과가 없습니다</p>
               </div>
@@ -325,7 +351,7 @@ export default function BookingsPage() {
           {totalPages > 1 && (
             <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-t border-white/10 bg-white/[0.02]">
               <p className="text-xs text-gray-500">
-                {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, filteredBookings.length)} / {filteredBookings.length}
+                {(currentPage - 1) * ITEMS_PER_PAGE + 1} - {Math.min(currentPage * ITEMS_PER_PAGE, totalCount)} / {totalCount}
               </p>
               <div className="flex items-center gap-1">
                 <button

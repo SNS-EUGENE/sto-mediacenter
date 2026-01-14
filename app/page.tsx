@@ -1,19 +1,86 @@
 'use client'
 
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
-import {
-  getTodayBookings,
-  getRecentBookings,
-  getMonthlyStudioStats,
-  getDashboardStats,
-} from '@/lib/data'
+import { getBookingsByDate, getBookingsByDateRange, getEquipmentStats } from '@/lib/supabase/queries'
 import { STUDIOS } from '@/lib/constants'
+import { Loader2 } from 'lucide-react'
+import { timeSlotsToString, getStudioName } from '@/lib/utils'
+import type { BookingWithStudio } from '@/types/supabase'
 
 export default function DashboardPage() {
-  const stats = getDashboardStats()
-  const todayBookings = getTodayBookings()
-  const recentBookings = getRecentBookings(4)
-  const studioStats = getMonthlyStudioStats()
+  const [todayBookings, setTodayBookings] = useState<BookingWithStudio[]>([])
+  const [monthBookings, setMonthBookings] = useState<BookingWithStudio[]>([])
+  const [equipmentCount, setEquipmentCount] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  const today = new Date()
+  const todayStr = today.toISOString().split('T')[0]
+
+  // 데이터 로드
+  const loadData = useCallback(async () => {
+    setLoading(true)
+    try {
+      const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
+      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+      const monthEnd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${lastDay}`
+
+      const [todayData, monthData, equipStats] = await Promise.all([
+        getBookingsByDate(todayStr),
+        getBookingsByDateRange(monthStart, monthEnd),
+        getEquipmentStats(),
+      ])
+      setTodayBookings(todayData)
+      setMonthBookings(monthData)
+      setEquipmentCount(equipStats.equipmentCount)
+    } catch (err) {
+      console.error('Failed to load dashboard data:', err)
+    } finally {
+      setLoading(false)
+    }
+  }, [todayStr, today])
+
+  useEffect(() => {
+    loadData()
+  }, [loadData])
+
+  // 통계 계산
+  const stats = useMemo(() => {
+    const todayConfirmed = todayBookings.filter(b => b.status !== 'CANCELLED').length
+    const monthConfirmed = monthBookings.filter(b => b.status === 'CONFIRMED').length
+    return {
+      today: { bookings: todayConfirmed },
+      month: { confirmed: monthConfirmed },
+    }
+  }, [todayBookings, monthBookings])
+
+  // 스튜디오별 가동률 계산
+  const studioStats = useMemo(() => {
+    const daysInMonth = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
+    const hoursPerDay = 9
+    const maxHours = daysInMonth * hoursPerDay
+
+    return STUDIOS.map((studio) => {
+      const studioBookings = monthBookings.filter(
+        (b) => b.studio_id === studio.id && b.status !== 'CANCELLED'
+      )
+      const totalHours = studioBookings.reduce((sum, b) => sum + (b.time_slots?.length || 0), 0)
+      const utilizationRate = (totalHours / maxHours) * 100
+
+      return {
+        totalBookings: studioBookings.length,
+        utilizationRate,
+      }
+    })
+  }, [monthBookings, today])
+
+  // 최근 예약 (날짜순)
+  const recentBookings = useMemo(() => {
+    return [...monthBookings]
+      .filter(b => b.status !== 'CANCELLED')
+      .sort((a, b) => b.rental_date.localeCompare(a.rental_date))
+      .slice(0, 4)
+  }, [monthBookings])
 
   return (
     <AdminLayout>
@@ -85,7 +152,7 @@ export default function DashboardPage() {
                 </div>
                 <span className="status-badge px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">정상</span>
               </div>
-              <p className="text-2xl lg:text-3xl font-bold mb-1">20개</p>
+              <p className="text-2xl lg:text-3xl font-bold mb-1">{equipmentCount}개</p>
               <p className="text-sm text-white/40">보유 장비</p>
             </div>
           </div>
@@ -102,7 +169,7 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="grid sm:grid-cols-3 gap-4">
-                  {/* 대형 스튜디오 */}
+                  {/* 메인 스튜디오 */}
                   <div className="p-4 rounded-2xl studio-card-violet border">
                     <div className="flex items-center justify-between mb-3">
                       <span className="text-sm font-medium">{STUDIOS[0].alias}</span>
@@ -162,7 +229,11 @@ export default function DashboardPage() {
                 </div>
 
                 <div className="space-y-3">
-                  {todayBookings.length > 0 ? (
+                  {loading ? (
+                    <div className="flex items-center justify-center py-8">
+                      <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                    </div>
+                  ) : todayBookings.length > 0 ? (
                     todayBookings.slice(0, 4).map((booking, idx) => {
                       const barClass = ['schedule-bar-violet', 'schedule-bar-cyan', 'schedule-bar-amber', 'schedule-bar-rose'][idx % 4]
                       const badgeColors = [
@@ -177,13 +248,13 @@ export default function DashboardPage() {
                           <div className={`w-1 h-12 rounded-full ${barClass}`} />
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium">{booking.eventName || '예약'}</span>
-                              <span className={`px-2 py-0.5 ${badgeColors} text-xs rounded`}>{booking.studioName}</span>
+                              <span className="font-medium">{booking.event_name || '예약'}</span>
+                              <span className={`px-2 py-0.5 ${badgeColors} text-xs rounded`}>{getStudioName(booking.studio_id)}</span>
                             </div>
-                            <p className="text-sm text-white/40">{booking.applicantName} | {booking.timeDisplay}</p>
+                            <p className="text-sm text-white/40">{booking.applicant_name} | {timeSlotsToString(booking.time_slots || [])}</p>
                           </div>
-                          <span className={`px-3 py-1 text-xs rounded-full ${booking.statusCode === 'CONFIRMED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                            {booking.statusCode === 'CONFIRMED' ? '확정' : '대기'}
+                          <span className={`px-3 py-1 text-xs rounded-full ${booking.status === 'CONFIRMED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                            {booking.status === 'CONFIRMED' ? '확정' : '대기'}
                           </span>
                         </div>
                       )
@@ -255,7 +326,7 @@ export default function DashboardPage() {
                       <span className="w-2 h-2 rounded-full bg-amber-500" />
                       <span className="text-sm font-medium">새 예약 요청</span>
                     </div>
-                    <p className="text-xs text-white/40 pl-4">내일 09:00 대형 스튜디오 예약 대기</p>
+                    <p className="text-xs text-white/40 pl-4">내일 09:00 메인 스튜디오 예약 대기</p>
                   </div>
                   <div className="notification-item notification-cyan">
                     <div className="flex items-center gap-2 mb-1">
@@ -282,10 +353,10 @@ export default function DashboardPage() {
                         </svg>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{booking.applicantName}</p>
-                        <p className="text-xs text-white/40">{booking.studioName}</p>
+                        <p className="text-sm font-medium truncate">{booking.applicant_name}</p>
+                        <p className="text-xs text-white/40">{getStudioName(booking.studio_id)}</p>
                       </div>
-                      <span className="text-xs text-amber-400">{booking.rentalDate}</span>
+                      <span className="text-xs text-amber-400">{booking.rental_date}</span>
                     </div>
                   ))}
                 </div>

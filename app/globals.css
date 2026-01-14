@@ -1,8 +1,8 @@
+@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
-
-@import url('https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css');
 
 * {
   font-family: 'Pretendard', -apple-system, BlinkMacSystemFont, sans-serif;
@@ -106,15 +106,19 @@ body {
   width: 72px;
 }
 
-/* Sidebar text - hidden by default, shown when expanded */
+/* Sidebar text - fade out when collapsed */
 .sidebar .sidebar-text {
-  display: block;
   white-space: nowrap;
   overflow: hidden;
+  opacity: 1;
+  max-width: 200px;
+  transition: opacity 0.2s ease, max-width 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 .sidebar.collapsed .sidebar-text {
-  display: none;
+  opacity: 0;
+  max-width: 0;
+  pointer-events: none;
 }
 
 /* Logo area */

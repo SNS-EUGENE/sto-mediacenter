@@ -43,12 +43,17 @@ export const EQUIPMENT_STATUS_LABELS: Record<string, string> = {
   REPAIRED: '수리완료',
 }
 
-// 스튜디오 목록
+// 스튜디오 목록 (UI 표시용 - 3개)
+// DB에서는 계층 구조 (1=메인, 2=1인카테고리, 3=A, 4=B)
+// UI에서는 메인, 1인A, 1인B 3개만 표시
 export const STUDIOS = [
-  { id: 1, name: '대형 스튜디오', alias: '대형', description: '다목적 대형 공간, 최대 30인 수용', capacity: 30 },
-  { id: 2, name: '1인 스튜디오 A', alias: '1인 A', description: '개인 크리에이터용 소형 스튜디오', capacity: 2 },
-  { id: 3, name: '1인 스튜디오 B', alias: '1인 B', description: '개인 크리에이터용 소형 스튜디오', capacity: 2 },
+  { id: 1, name: '메인 스튜디오', alias: '메인', description: '다목적 대형 공간, 최대 30인 수용', capacity: 30 },
+  { id: 3, name: '1인 스튜디오 A', alias: '1인 A', description: '개인 크리에이터용 소형 스튜디오', capacity: 2 },
+  { id: 4, name: '1인 스튜디오 B', alias: '1인 B', description: '개인 크리에이터용 소형 스튜디오', capacity: 2 },
 ]
+
+// 예약 가능한 스튜디오 (= STUDIOS와 동일)
+export const BOOKABLE_STUDIOS = STUDIOS
 
 // 네비게이션 메뉴
 export const NAV_ITEMS = [
