@@ -166,12 +166,12 @@ export default function CalendarPage() {
               <ChevronLeft className="w-5 h-5" />
             </button>
             <div className="flex items-center gap-3">
-              <h2 className="text-lg font-semibold text-white">
+              <h2 className="text-xl font-semibold text-white">
                 {currentYear}년 {currentMonth + 1}월
               </h2>
               <button
                 onClick={goToToday}
-                className="px-2 py-1 text-xs text-purple-400 hover:text-purple-300 border border-purple-500/30 rounded-md transition-colors"
+                className="px-2 py-1 text-sm text-purple-400 hover:text-purple-300 border border-purple-500/30 rounded-md transition-colors"
               >
                 오늘
               </button>
@@ -190,7 +190,7 @@ export default function CalendarPage() {
               <div
                 key={day}
                 className={cn(
-                  'text-center text-xs font-medium py-2',
+                  'text-center text-sm font-medium py-2',
                   idx === 0 ? 'text-red-400' : idx === 6 ? 'text-blue-400' : 'text-gray-500'
                 )}
               >
@@ -225,8 +225,8 @@ export default function CalendarPage() {
                 >
                   <span
                     className={cn(
-                      'text-sm font-medium',
-                      isToday && 'w-6 h-6 rounded-full bg-purple-500 text-white flex items-center justify-center text-xs',
+                      'text-base font-medium',
+                      isToday && 'w-7 h-7 rounded-full bg-purple-500 text-white flex items-center justify-center text-sm',
                       !isToday && dayOfWeek === 0 && 'text-red-400',
                       !isToday && dayOfWeek === 6 && 'text-blue-400',
                       !isToday && dayOfWeek !== 0 && dayOfWeek !== 6 && 'text-gray-300'
@@ -236,7 +236,7 @@ export default function CalendarPage() {
                   </span>
                   {bookingCount > 0 && (
                     <div className="absolute bottom-2 right-2">
-                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 font-medium">
+                      <span className="text-xs px-1.5 py-0.5 rounded bg-purple-500/20 text-purple-400 font-medium">
                         {bookingCount}
                       </span>
                     </div>
@@ -249,7 +249,7 @@ export default function CalendarPage() {
 
         {/* Selected Date Detail */}
         <GlassCard className="flex flex-col overflow-hidden">
-          <h3 className="flex-shrink-0 text-lg font-semibold text-white mb-4">
+          <h3 className="flex-shrink-0 text-xl font-semibold text-white mb-4">
             {new Date(selectedDate).toLocaleDateString('ko-KR', {
               month: 'long',
               day: 'numeric',
@@ -270,14 +270,14 @@ export default function CalendarPage() {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <StudioBadge studioId={booking.studio_id} />
-                    <span className="text-xs text-purple-400 font-medium">{timeSlotsToString(booking.time_slots || [])}</span>
+                    <span className="text-sm text-purple-400 font-medium">{timeSlotsToString(booking.time_slots || [])}</span>
                   </div>
-                  <p className="text-sm text-white font-medium">{booking.applicant_name}</p>
+                  <p className="text-base text-white font-medium">{booking.applicant_name}</p>
                   {booking.organization && (
-                    <p className="text-xs text-gray-400">{booking.organization}</p>
+                    <p className="text-sm text-gray-400">{booking.organization}</p>
                   )}
                   {booking.event_name && (
-                    <p className="text-xs text-gray-500 mt-1 truncate">
+                    <p className="text-sm text-gray-500 mt-1 truncate">
                       {booking.event_name}
                     </p>
                   )}
@@ -286,7 +286,7 @@ export default function CalendarPage() {
             </div>
           ) : (
             <div className="flex-1 flex items-center justify-center">
-              <p className="text-center text-gray-500">예약이 없습니다</p>
+              <p className="text-center text-base text-gray-500">예약이 없습니다</p>
             </div>
           )}
         </GlassCard>

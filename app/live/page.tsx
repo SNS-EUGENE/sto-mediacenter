@@ -3,6 +3,7 @@
 import { useState, useMemo, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
+import { supabase } from '@/lib/supabase/client'
 import { getBookingsByDate } from '@/lib/supabase/queries'
 import { STUDIOS, VALID_TIME_SLOTS } from '@/lib/constants'
 import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
@@ -59,9 +60,34 @@ export default function LiveStatusPage() {
     }
   }, [])
 
-  // 날짜 변경 시 데이터 로드
+  // 날짜 변경 시 데이터 로드 + Realtime 구독
   useEffect(() => {
     loadBookings(selectedDate)
+
+    // Supabase Realtime 구독 - 선택된 날짜의 예약 변경 감지
+    const channel = supabase
+      .channel(`live-bookings-${selectedDate}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookings',
+          filter: `rental_date=eq.${selectedDate}`,
+        },
+        (payload) => {
+          console.log('Live Realtime 변경 감지:', payload)
+          loadBookings(selectedDate)
+        }
+      )
+      .subscribe((status, err) => {
+        console.log('Live Realtime 구독 상태:', status)
+        if (err) console.error('Live Realtime 에러:', err)
+      })
+
+    return () => {
+      supabase.removeChannel(channel)
+    }
   }, [selectedDate, loadBookings])
 
   // 날짜 이동
@@ -105,49 +131,65 @@ export default function LiveStatusPage() {
     <AdminLayout>
       <div className="h-full flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4">
-          {/* Left: Title + Date Navigation */}
-          <div className="flex items-center gap-6">
-            <h1 className="text-xl lg:text-2xl font-bold text-white">실시간 현황</h1>
+        <div className="flex-shrink-0 flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6">
+          {/* Left: Title */}
+          <h1 className="text-2xl lg:text-3xl font-bold text-white">실시간 현황</h1>
 
-            {/* Date Navigation */}
-            <div className="flex items-center gap-1">
-              <button
-                onClick={goToPrevDay}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                onClick={goToToday}
-                className={cn(
-                  'px-2.5 py-1 text-sm rounded-lg transition-colors',
-                  isToday
-                    ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                )}
-              >
-                오늘
-              </button>
-              <span className="px-2 py-1 text-white font-medium text-sm">
-                {new Date(selectedDate).toLocaleDateString('ko-KR', {
-                  month: 'long',
-                  day: 'numeric',
-                  weekday: 'short',
-                })}
-              </span>
-              <button
-                onClick={goToNextDay}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+          {/* Center: Date Navigation */}
+          <div className="flex items-center gap-2">
+            <button
+              onClick={goToPrevDay}
+              className="p-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <ChevronLeft className="w-6 h-6" />
+            </button>
+            <button
+              onClick={goToToday}
+              className={cn(
+                'px-4 py-2 text-lg font-semibold rounded-lg transition-colors',
+                isToday
+                  ? 'bg-purple-500/20 text-purple-400 border border-purple-500/30'
+                  : 'text-gray-400 hover:text-white hover:bg-white/5'
+              )}
+            >
+              오늘
+            </button>
+            <span className="px-4 py-1 text-white font-bold text-xl lg:text-2xl">
+              {new Date(selectedDate).toLocaleDateString('ko-KR', {
+                month: 'long',
+                day: 'numeric',
+                weekday: 'short',
+              })}
+            </span>
+            <button
+              onClick={goToNextDay}
+              className="p-2.5 rounded-lg text-gray-400 hover:text-white hover:bg-white/5 transition-colors"
+            >
+              <ChevronRight className="w-6 h-6" />
+            </button>
           </div>
 
-          {/* Right: Current Time */}
-          <div className="text-xl lg:text-2xl font-bold text-purple-400 tabular-nums">
-            {currentTime ? currentTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
+          {/* Right: Current Time - Digital Clock Style */}
+          <div className="flex items-center gap-1">
+            {currentTime ? (
+              <>
+                <div className="flex items-center">
+                  <span className="text-4xl lg:text-5xl font-black text-purple-400 tabular-nums tracking-tight">
+                    {String(currentTime.getHours()).padStart(2, '0')}
+                  </span>
+                  <span className="text-4xl lg:text-5xl font-black text-purple-400/50 mx-1 animate-pulse">:</span>
+                  <span className="text-4xl lg:text-5xl font-black text-purple-400 tabular-nums tracking-tight">
+                    {String(currentTime.getMinutes()).padStart(2, '0')}
+                  </span>
+                  <span className="text-4xl lg:text-5xl font-black text-purple-400/50 mx-1 animate-pulse">:</span>
+                  <span className="text-4xl lg:text-5xl font-black text-purple-300 tabular-nums tracking-tight">
+                    {String(currentTime.getSeconds()).padStart(2, '0')}
+                  </span>
+                </div>
+              </>
+            ) : (
+              <span className="text-4xl lg:text-5xl font-black text-purple-400/30 tabular-nums">--:--:--</span>
+            )}
           </div>
         </div>
 
@@ -156,18 +198,18 @@ export default function LiveStatusPage() {
           <div className="flex-1 min-h-0 overflow-x-auto overflow-y-hidden">
             <div className="min-w-[700px] h-full flex flex-col">
               {/* Time Markers Row */}
-              <div className="flex-shrink-0 flex h-8">
+              <div className="flex-shrink-0 flex h-10 border-b border-white/5">
                 {/* Empty space for studio labels */}
-                <div className="w-28 flex-shrink-0" />
+                <div className="w-28 lg:w-32 flex-shrink-0" />
                 {/* Time markers - positioned at the start of each hour */}
-                <div className="flex-1 relative px-4">
+                <div className="flex-1 relative">
                   {TIME_MARKERS.map((hour, idx) => (
                     <div
                       key={hour}
                       className="absolute top-0 bottom-0 flex items-center"
-                      style={{ left: `calc(${(idx / 9) * 100}% * 0.92 + 2%)`, transform: 'translateX(-50%)' }}
+                      style={{ left: `${(idx / 9) * 96}%`, transform: 'translateX(-50%)' }}
                     >
-                      <span className="text-xs text-gray-500 font-medium">{hour}시</span>
+                      <span className="text-sm text-gray-400 font-medium">{hour}시</span>
                     </div>
                   ))}
                 </div>
@@ -180,30 +222,33 @@ export default function LiveStatusPage() {
                     <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
                   </div>
                 ) : (
-                  STUDIOS.map((studio) => {
+                  STUDIOS.map((studio, index) => {
                     const studioBookings = dayBookings.filter((b) => b.studio_id === studio.id)
                     const colors = studioColors[studio.id] || studioColors[1]
 
                     return (
                       <div
                         key={studio.id}
-                        className="flex-1 flex border-t border-white/5 first:border-t-0 min-h-[80px]"
+                        className={cn(
+                          'flex-1 flex min-h-[80px]',
+                          index > 0 && 'border-t border-white/5'
+                        )}
                       >
                         {/* Studio Label */}
-                        <div className="w-28 flex-shrink-0 flex items-center justify-center px-2">
-                          <span className={cn('text-sm font-bold whitespace-nowrap text-center', colors.text)}>
+                        <div className="w-28 lg:w-32 flex-shrink-0 flex items-center justify-center px-3">
+                          <span className={cn('text-lg lg:text-xl font-bold whitespace-nowrap text-center', colors.text)}>
                             {studio.name}
                           </span>
                         </div>
 
                         {/* Timeline Area */}
-                        <div className="flex-1 relative px-4">
+                        <div className="flex-1 relative">
                           {/* Vertical Grid Lines */}
                           {TIME_MARKERS.map((hour, idx) => (
                             <div
                               key={hour}
                               className="absolute top-0 bottom-0 w-px bg-white/5"
-                              style={{ left: `calc(${(idx / 9) * 100}% * 0.92 + 2%)` }}
+                              style={{ left: `${(idx / 9) * 96}%` }}
                             />
                           ))}
 
@@ -211,7 +256,7 @@ export default function LiveStatusPage() {
                           {currentTimePosition !== null && (
                             <div
                               className="absolute top-0 bottom-0 w-0.5 bg-red-500/30 z-0"
-                              style={{ left: `calc(${currentTimePosition}% * 0.92 + 2%)` }}
+                              style={{ left: `${currentTimePosition * 0.96}%` }}
                             />
                           )}
 
@@ -233,11 +278,11 @@ export default function LiveStatusPage() {
                                 key={booking.id}
                                 className={cn(
                                   'absolute top-1/2 -translate-y-1/2 h-14 rounded-lg cursor-pointer transition-all z-10',
-                                  isActive && 'p-[1.5px] animate-border-spin'
+                                  isActive && 'animate-glow-pulse'
                                 )}
                                 style={{
-                                  left: `calc(${startPercent}% * 0.92 + 2%)`,
-                                  width: `calc(${widthPercent}% * 0.92)`,
+                                  left: `${startPercent * 0.96}%`,
+                                  width: `${widthPercent * 0.96}%`,
                                 }}
                                 onMouseEnter={(e) => {
                                   setHoveredBooking(booking.id)
@@ -253,7 +298,7 @@ export default function LiveStatusPage() {
                                     'h-full w-full rounded-lg px-3 py-1.5 flex flex-col justify-center',
                                     'border text-white',
                                     isActive
-                                      ? `bg-[#12121a] border-transparent`
+                                      ? `bg-gradient-to-r ${colors.bg} border-white/20`
                                       : `bg-gradient-to-r ${colors.bg} border-white/10 hover:${colors.border}`
                                   )}
                                 >

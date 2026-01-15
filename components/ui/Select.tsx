@@ -25,7 +25,9 @@ export default function Select({
   className,
 }: SelectProps) {
   const [isOpen, setIsOpen] = useState(false)
+  const [alignRight, setAlignRight] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
+  const dropdownRef = useRef<HTMLDivElement>(null)
 
   const selectedOption = options.find((opt) => opt.value === value)
 
@@ -52,6 +54,18 @@ export default function Select({
     document.addEventListener('keydown', handleKeyDown)
     return () => document.removeEventListener('keydown', handleKeyDown)
   }, [])
+
+  // 드롭다운 위치 자동 감지 - 열기 전에 컨테이너 위치로 판단
+  useEffect(() => {
+    if (isOpen && containerRef.current) {
+      const containerRect = containerRef.current.getBoundingClientRect()
+      const viewportWidth = window.innerWidth
+
+      // 컨테이너가 화면 오른쪽 절반에 있으면 오른쪽 정렬
+      const isOnRightSide = containerRect.right > viewportWidth / 2
+      setAlignRight(isOnRightSide)
+    }
+  }, [isOpen])
 
   return (
     <div ref={containerRef} className={cn('relative', className)}>
@@ -83,13 +97,16 @@ export default function Select({
       {/* Dropdown Menu */}
       {isOpen && (
         <div
+          ref={dropdownRef}
           className={cn(
-            'absolute z-50 mt-2 w-full min-w-[140px]',
+            'absolute z-50 mt-2 min-w-[140px]',
             'py-1.5 rounded-xl',
             'bg-[#1a1a24]/95 backdrop-blur-xl',
             'border border-white/10',
             'shadow-xl shadow-black/30',
-            'animate-in fade-in-0 zoom-in-95 duration-150'
+            'animate-in fade-in-0 zoom-in-95 duration-150',
+            'max-h-[240px] overflow-y-auto scrollbar-thin',
+            alignRight ? 'right-0' : 'left-0'
           )}
         >
           {options.map((option) => {
