@@ -20,14 +20,20 @@ BEGIN
   END IF;
 END $$;
 
--- 3. 기존 RLS 정책 삭제
+-- 3. 기존 RLS 정책 삭제 (인증 기반 + anon 기반 모두)
 DROP POLICY IF EXISTS "Authenticated users can insert bookings" ON bookings;
 DROP POLICY IF EXISTS "Authenticated users can update bookings" ON bookings;
 DROP POLICY IF EXISTS "Authenticated users can delete bookings" ON bookings;
+DROP POLICY IF EXISTS "Anyone can insert bookings" ON bookings;
+DROP POLICY IF EXISTS "Anyone can update bookings" ON bookings;
+DROP POLICY IF EXISTS "Anyone can delete bookings" ON bookings;
 
 DROP POLICY IF EXISTS "Authenticated users can insert equipments" ON equipments;
 DROP POLICY IF EXISTS "Authenticated users can update equipments" ON equipments;
 DROP POLICY IF EXISTS "Authenticated users can delete equipments" ON equipments;
+DROP POLICY IF EXISTS "Anyone can insert equipments" ON equipments;
+DROP POLICY IF EXISTS "Anyone can update equipments" ON equipments;
+DROP POLICY IF EXISTS "Anyone can delete equipments" ON equipments;
 
 -- 4. 새 RLS 정책: anon 사용자도 CRUD 가능 (인증 구현 전까지 임시)
 -- 예약

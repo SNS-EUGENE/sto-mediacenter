@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useMemo, useEffect } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
-import { allBookings } from '@/lib/data'
+import { getBookingsByDate } from '@/lib/supabase/queries'
 import { STUDIOS, VALID_TIME_SLOTS } from '@/lib/constants'
-import { ChevronLeft, ChevronRight } from 'lucide-react'
-import { cn } from '@/lib/utils'
+import { ChevronLeft, ChevronRight, Loader2 } from 'lucide-react'
+import { cn, timeSlotsToString } from '@/lib/utils'
+import type { BookingWithStudio } from '@/types/supabase'
 
 // 날짜 문자열 생성
 function formatDateStr(date: Date): string {
@@ -17,14 +18,35 @@ function formatDateStr(date: Date): string {
 const TIME_MARKERS = [...VALID_TIME_SLOTS, 18]
 
 export default function LiveStatusPage() {
-  const [currentTime, setCurrentTime] = useState(new Date())
-  const [selectedDate, setSelectedDate] = useState(formatDateStr(new Date()))
+  // Hydration 에러 방지: 초기값을 null로 설정하고 클라이언트에서만 설정
+  const [currentTime, setCurrentTime] = useState<Date | null>(null)
+  const [selectedDate, setSelectedDate] = useState(() => formatDateStr(new Date()))
   const [hoveredBooking, setHoveredBooking] = useState<string | null>(null)
   const [mousePos, setMousePos] = useState({ x: 0, y: 0 })
   const [windowWidth, setWindowWidth] = useState(0)
+  const [dayBookings, setDayBookings] = useState<BookingWithStudio[]>([])
+  const [isLoading, setIsLoading] = useState(true)
 
-  // 현재 시각 업데이트 + 윈도우 너비 추적
+  // 데이터 로드
+  const loadBookings = useCallback(async (dateStr: string) => {
+    setIsLoading(true)
+    try {
+      const data = await getBookingsByDate(dateStr)
+      const filtered = data
+        .filter((b) => b.status !== 'CANCELLED')
+        .sort((a, b) => (a.time_slots?.[0] || 0) - (b.time_slots?.[0] || 0))
+      setDayBookings(filtered)
+    } catch (err) {
+      console.error('Failed to load bookings:', err)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [])
+
+  // 현재 시각 업데이트 + 윈도우 너비 추적 + 초기 데이터 로드
   useEffect(() => {
+    // 클라이언트에서만 시간 설정 (Hydration 에러 방지)
+    setCurrentTime(new Date())
     const timer = setInterval(() => setCurrentTime(new Date()), 1000)
 
     const handleResize = () => setWindowWidth(window.innerWidth)
@@ -37,12 +59,10 @@ export default function LiveStatusPage() {
     }
   }, [])
 
-  // 선택된 날짜의 예약 목록
-  const dayBookings = useMemo(() => {
-    return allBookings
-      .filter((b) => b.rentalDate === selectedDate && b.statusCode !== 'CANCELLED')
-      .sort((a, b) => a.startHour - b.startHour)
-  }, [selectedDate])
+  // 날짜 변경 시 데이터 로드
+  useEffect(() => {
+    loadBookings(selectedDate)
+  }, [selectedDate, loadBookings])
 
   // 날짜 이동
   const goToPrevDay = () => {
@@ -62,8 +82,8 @@ export default function LiveStatusPage() {
   }
 
   // 현재 시각 위치 계산 (9시~18시 기준)
-  const currentHour = currentTime.getHours()
-  const currentMinute = currentTime.getMinutes()
+  const currentHour = currentTime?.getHours() ?? 0
+  const currentMinute = currentTime?.getMinutes() ?? 0
   const isToday = selectedDate === formatDateStr(new Date())
   const currentTimePosition = isToday && currentHour >= 9 && currentHour < 18
     ? ((currentHour - 9 + currentMinute / 60) / 9) * 100
@@ -74,11 +94,11 @@ export default function LiveStatusPage() {
     ? dayBookings.find((b) => b.id === hoveredBooking)
     : null
 
-  // 스튜디오 색상
+  // 스튜디오 색상 (ID: 1=메인, 3=1인A, 4=1인B)
   const studioColors: Record<number, { bg: string; border: string; text: string }> = {
     1: { bg: 'from-violet-500/30 to-purple-500/30', border: 'border-violet-500/40', text: 'text-violet-400' },
-    2: { bg: 'from-cyan-500/30 to-blue-500/30', border: 'border-cyan-500/40', text: 'text-cyan-400' },
-    3: { bg: 'from-pink-500/30 to-rose-500/30', border: 'border-pink-500/40', text: 'text-pink-400' },
+    3: { bg: 'from-cyan-500/30 to-blue-500/30', border: 'border-cyan-500/40', text: 'text-cyan-400' },
+    4: { bg: 'from-pink-500/30 to-rose-500/30', border: 'border-pink-500/40', text: 'text-pink-400' },
   }
 
   return (
@@ -127,7 +147,7 @@ export default function LiveStatusPage() {
 
           {/* Right: Current Time */}
           <div className="text-xl lg:text-2xl font-bold text-purple-400 tabular-nums">
-            {currentTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+            {currentTime ? currentTime.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : '--:--:--'}
           </div>
         </div>
 
@@ -155,91 +175,106 @@ export default function LiveStatusPage() {
 
               {/* Studio Rows - Fill remaining space */}
               <div className="flex-1 flex flex-col min-h-0">
-                {STUDIOS.map((studio) => {
-                  const studioBookings = dayBookings.filter((b) => b.studioId === studio.id)
-                  const colors = studioColors[studio.id] || studioColors[1]
+                {isLoading ? (
+                  <div className="flex-1 flex items-center justify-center">
+                    <Loader2 className="w-8 h-8 animate-spin text-purple-400" />
+                  </div>
+                ) : (
+                  STUDIOS.map((studio) => {
+                    const studioBookings = dayBookings.filter((b) => b.studio_id === studio.id)
+                    const colors = studioColors[studio.id] || studioColors[1]
 
-                  return (
-                    <div
-                      key={studio.id}
-                      className="flex-1 flex border-t border-white/5 first:border-t-0 min-h-[80px]"
-                    >
-                      {/* Studio Label */}
-                      <div className="w-28 flex-shrink-0 flex items-center justify-center px-2 border-r border-white/5">
-                        <span className={cn('text-sm font-bold whitespace-nowrap text-center', colors.text)}>
-                          {studio.name}
-                        </span>
-                      </div>
+                    return (
+                      <div
+                        key={studio.id}
+                        className="flex-1 flex border-t border-white/5 first:border-t-0 min-h-[80px]"
+                      >
+                        {/* Studio Label */}
+                        <div className="w-28 flex-shrink-0 flex items-center justify-center px-2">
+                          <span className={cn('text-sm font-bold whitespace-nowrap text-center', colors.text)}>
+                            {studio.name}
+                          </span>
+                        </div>
 
-                      {/* Timeline Area */}
-                      <div className="flex-1 relative px-4">
-                        {/* Vertical Grid Lines */}
-                        {TIME_MARKERS.map((hour, idx) => (
-                          <div
-                            key={hour}
-                            className="absolute top-0 bottom-0 w-px bg-white/5"
-                            style={{ left: `calc(${(idx / 9) * 100}% * 0.92 + 2%)` }}
-                          />
-                        ))}
-
-                        {/* Current Time Line */}
-                        {currentTimePosition !== null && (
-                          <div
-                            className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-20"
-                            style={{ left: `calc(${currentTimePosition}% * 0.92 + 2%)` }}
-                          />
-                        )}
-
-                        {/* Bookings */}
-                        {studioBookings.map((booking) => {
-                          const startPercent = ((booking.startHour - 9) / 9) * 100
-                          const duration = booking.endHour - booking.startHour
-                          const widthPercent = (duration / 9) * 100
-
-                          // 현재 진행 중인지 확인
-                          const isActive = isToday &&
-                            currentHour >= booking.startHour &&
-                            currentHour < booking.endHour
-
-                          return (
+                        {/* Timeline Area */}
+                        <div className="flex-1 relative px-4">
+                          {/* Vertical Grid Lines */}
+                          {TIME_MARKERS.map((hour, idx) => (
                             <div
-                              key={booking.id}
-                              className={cn(
-                                'absolute top-1/2 -translate-y-1/2 h-14 rounded-lg px-3 py-1.5 flex flex-col justify-center cursor-pointer transition-all z-10',
-                                'border text-white',
-                                isActive
-                                  ? `bg-gradient-to-r ${colors.bg} ${colors.border} shadow-lg`
-                                  : `bg-gradient-to-r ${colors.bg} border-white/10 hover:${colors.border}`
-                              )}
-                              style={{
-                                left: `calc(${startPercent}% * 0.92 + 2%)`,
-                                width: `calc(${widthPercent}% * 0.92)`,
-                              }}
-                              onMouseEnter={(e) => {
-                                setHoveredBooking(booking.id)
-                                setMousePos({ x: e.clientX, y: e.clientY })
-                              }}
-                              onMouseMove={(e) => {
-                                setMousePos({ x: e.clientX, y: e.clientY })
-                              }}
-                              onMouseLeave={() => setHoveredBooking(null)}
-                            >
-                              <div className="flex items-center gap-2">
-                                <span className="truncate text-sm font-medium">{booking.applicantName}</span>
-                                {isActive && (
-                                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+                              key={hour}
+                              className="absolute top-0 bottom-0 w-px bg-white/5"
+                              style={{ left: `calc(${(idx / 9) * 100}% * 0.92 + 2%)` }}
+                            />
+                          ))}
+
+                          {/* Current Time Line */}
+                          {currentTimePosition !== null && (
+                            <div
+                              className="absolute top-0 bottom-0 w-0.5 bg-red-500/30 z-0"
+                              style={{ left: `calc(${currentTimePosition}% * 0.92 + 2%)` }}
+                            />
+                          )}
+
+                          {/* Bookings */}
+                          {studioBookings.map((booking) => {
+                            const slots = booking.time_slots || []
+                            if (slots.length === 0) return null
+                            const startHour = Math.min(...slots)
+                            const endHour = Math.max(...slots) + 1
+                            const startPercent = ((startHour - 9) / 9) * 100
+                            const duration = endHour - startHour
+                            const widthPercent = (duration / 9) * 100
+
+                            // 현재 진행 중인지 확인
+                            const isActive = isToday && slots.includes(currentHour)
+
+                            return (
+                              <div
+                                key={booking.id}
+                                className={cn(
+                                  'absolute top-1/2 -translate-y-1/2 h-14 rounded-lg cursor-pointer transition-all z-10',
+                                  isActive && 'p-[1.5px] animate-border-spin'
                                 )}
+                                style={{
+                                  left: `calc(${startPercent}% * 0.92 + 2%)`,
+                                  width: `calc(${widthPercent}% * 0.92)`,
+                                }}
+                                onMouseEnter={(e) => {
+                                  setHoveredBooking(booking.id)
+                                  setMousePos({ x: e.clientX, y: e.clientY })
+                                }}
+                                onMouseMove={(e) => {
+                                  setMousePos({ x: e.clientX, y: e.clientY })
+                                }}
+                                onMouseLeave={() => setHoveredBooking(null)}
+                              >
+                                <div
+                                  className={cn(
+                                    'h-full w-full rounded-lg px-3 py-1.5 flex flex-col justify-center',
+                                    'border text-white',
+                                    isActive
+                                      ? `bg-[#12121a] border-transparent`
+                                      : `bg-gradient-to-r ${colors.bg} border-white/10 hover:${colors.border}`
+                                  )}
+                                >
+                                  <div className="flex items-center gap-2">
+                                    <span className="truncate text-sm font-medium">{booking.applicant_name}</span>
+                                    {isActive && (
+                                      <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+                                    )}
+                                  </div>
+                                  {booking.organization && (
+                                    <span className="truncate text-xs text-gray-400">{booking.organization}</span>
+                                  )}
+                                </div>
                               </div>
-                              {booking.organization && (
-                                <span className="truncate text-xs text-gray-400">{booking.organization}</span>
-                              )}
-                            </div>
-                          )
-                        })}
+                            )
+                          })}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
+                    )
+                  })
+                )}
               </div>
             </div>
           </div>
@@ -247,8 +282,8 @@ export default function LiveStatusPage() {
           {/* Summary - Fill full width at bottom */}
           <div className="flex-shrink-0 grid grid-cols-3 border-t border-white/5">
             {STUDIOS.map((studio) => {
-              const studioBookings = dayBookings.filter((b) => b.studioId === studio.id)
-              const totalHours = studioBookings.reduce((sum, b) => sum + (b.endHour - b.startHour), 0)
+              const studioBookings = dayBookings.filter((b) => b.studio_id === studio.id)
+              const totalHours = studioBookings.reduce((sum, b) => sum + (b.time_slots?.length || 0), 0)
               const colors = studioColors[studio.id] || studioColors[1]
 
               return (
@@ -280,26 +315,26 @@ export default function LiveStatusPage() {
         >
           <div className="bg-[#1a1a24] border border-white/10 rounded-xl p-4 shadow-2xl min-w-[240px]">
             <div className="flex items-center justify-between mb-3">
-              <span className={cn('text-sm font-medium', studioColors[hoveredBookingData.studioId]?.text)}>
-                {STUDIOS.find(s => s.id === hoveredBookingData.studioId)?.alias}
+              <span className={cn('text-sm font-medium', studioColors[hoveredBookingData.studio_id]?.text)}>
+                {STUDIOS.find(s => s.id === hoveredBookingData.studio_id)?.alias}
               </span>
               <span className="text-sm text-purple-400 font-medium">
-                {hoveredBookingData.timeDisplay}
+                {timeSlotsToString(hoveredBookingData.time_slots || [])}
               </span>
             </div>
-            <p className="text-white font-medium mb-1">{hoveredBookingData.applicantName}</p>
+            <p className="text-white font-medium mb-1">{hoveredBookingData.applicant_name}</p>
             {hoveredBookingData.organization && (
               <p className="text-sm text-gray-400 mb-2">{hoveredBookingData.organization}</p>
             )}
-            {hoveredBookingData.eventName && (
+            {hoveredBookingData.event_name && (
               <p className="text-sm text-gray-500 border-t border-white/5 pt-2 mt-2">
-                {hoveredBookingData.eventName}
+                {hoveredBookingData.event_name}
               </p>
             )}
             <div className="flex items-center gap-2 mt-2 text-xs text-gray-500">
-              <span>{hoveredBookingData.participantsCount}명</span>
+              <span>{hoveredBookingData.participants_count}명</span>
               <span>•</span>
-              <span>{hoveredBookingData.status}</span>
+              <span>{hoveredBookingData.status === 'CONFIRMED' ? '확정' : hoveredBookingData.status === 'PENDING' ? '대기' : '취소'}</span>
             </div>
           </div>
         </div>

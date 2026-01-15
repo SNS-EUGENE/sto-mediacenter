@@ -13,6 +13,7 @@ import { getBookings, createBooking, updateBooking, deleteBooking, checkBookingC
 import { STUDIOS, BOOKING_STATUS_LABELS } from '@/lib/constants'
 import { Search, ChevronLeft, ChevronRight, ChevronDown, Plus, Edit2, Trash2, Loader2, FileSpreadsheet } from 'lucide-react'
 import { cn, timeSlotsToString } from '@/lib/utils'
+import { getComputedStatus } from '@/lib/utils/bookingStatus'
 import type { BookingWithStudio, BookingInsert, Booking } from '@/types/supabase'
 
 const ITEMS_PER_PAGE = 20
@@ -313,7 +314,7 @@ export default function BookingsPage() {
                       <div><StudioBadge studioId={booking.studio_id} /></div>
                       <span className="text-sm text-white truncate">{booking.applicant_name}</span>
                       <span className="text-sm text-gray-400 truncate">{booking.event_name || '-'}</span>
-                      <div><StatusBadge status={booking.status} /></div>
+                      <div><StatusBadge status={getComputedStatus(booking)} /></div>
                       <div className="flex items-center justify-center">
                         <ChevronDown className={cn(
                           'w-4 h-4 text-gray-500 transition-transform',
@@ -402,7 +403,7 @@ export default function BookingsPage() {
                           <span className="text-xs text-gray-600">{timeSlotsToString(booking.time_slots || [])}</span>
                         </div>
                         <div className="flex items-center gap-2">
-                          <StatusBadge status={booking.status} />
+                          <StatusBadge status={getComputedStatus(booking)} />
                           <ChevronDown className={cn(
                             'w-4 h-4 text-gray-500 transition-transform',
                             expandedId === booking.id && 'rotate-180'

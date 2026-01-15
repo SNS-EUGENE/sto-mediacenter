@@ -501,3 +501,20 @@ select option:checked {
 .quick-action-rose:hover {
   border-color: rgba(244, 63, 94, 0.4);
 }
+
+/* Animated Border Spin - 진행 중인 예약 카드 */
+@keyframes border-spin {
+  0% { --angle: 0deg; }
+  100% { --angle: 360deg; }
+}
+
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+
+.animate-border-spin {
+  background: conic-gradient(from var(--angle), transparent 20%, rgba(74, 222, 128, 0.4) 40%, rgba(74, 222, 128, 0.7) 60%, rgba(74, 222, 128, 0.4) 80%, transparent 100%);
+  animation: border-spin 2.5s linear infinite;
+}

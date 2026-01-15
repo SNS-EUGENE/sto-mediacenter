@@ -4,6 +4,7 @@
 import { supabase } from './client'
 import type { Booking, BookingWithStudio, Equipment, Studio } from '@/types/supabase'
 import type { BookingFilters, PaginatedResponse, PaginationParams } from '@/types'
+import { getComputedStatus } from '@/lib/utils/bookingStatus'
 
 // =============================================
 // Studios
@@ -393,6 +394,7 @@ export async function getBookingStats(startDate: string, endDate: string) {
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 export async function getTodayStats(): Promise<{ bookings: any[]; stats: any }> {
   const today = new Date().toISOString().split('T')[0]
+  const now = new Date()
 
   const { data: todayBookings, error } = await supabase
     .from('bookings')
@@ -414,8 +416,9 @@ export async function getTodayStats(): Promise<{ bookings: any[]; stats: any }> 
     // Count by studio
     stats.byStudio[booking.studio_id] = (stats.byStudio[booking.studio_id] || 0) + 1
 
-    // Count by status
-    stats.byStatus[booking.status] = (stats.byStatus[booking.status] || 0) + 1
+    // 계산된 상태로 집계 (IN_USE, DONE 반영)
+    const computedStatus = getComputedStatus(booking, now)
+    stats.byStatus[computedStatus] = (stats.byStatus[computedStatus] || 0) + 1
 
     // Total hours
     stats.totalHours += booking.time_slots?.length || 0

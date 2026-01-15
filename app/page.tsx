@@ -14,17 +14,19 @@ export default function DashboardPage() {
   const [equipmentCount, setEquipmentCount] = useState(0)
   const [loading, setLoading] = useState(true)
 
+  // 날짜 문자열은 한 번만 계산
   const today = new Date()
   const todayStr = today.toISOString().split('T')[0]
+  const year = today.getFullYear()
+  const month = today.getMonth()
+  const monthStart = `${year}-${String(month + 1).padStart(2, '0')}-01`
+  const lastDay = new Date(year, month + 1, 0).getDate()
+  const monthEnd = `${year}-${String(month + 1).padStart(2, '0')}-${lastDay}`
 
   // 데이터 로드
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const monthStart = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-01`
-      const lastDay = new Date(today.getFullYear(), today.getMonth() + 1, 0).getDate()
-      const monthEnd = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${lastDay}`
-
       const [todayData, monthData, equipStats] = await Promise.all([
         getBookingsByDate(todayStr),
         getBookingsByDateRange(monthStart, monthEnd),
@@ -38,7 +40,7 @@ export default function DashboardPage() {
     } finally {
       setLoading(false)
     }
-  }, [todayStr, today])
+  }, [todayStr, monthStart, monthEnd])
 
   useEffect(() => {
     loadData()

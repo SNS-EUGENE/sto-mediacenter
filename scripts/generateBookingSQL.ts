@@ -71,23 +71,23 @@ function escapeSQL(str: string | null | undefined): string {
   return String(str).replace(/'/g, "''")
 }
 
-// 취소된 예약은 제외하고 처리
-const activeBookings = rawData.filter((b: any) => b.예약상태 !== '예약취소')
-console.log(`취소 제외 ${activeBookings.length}개 예약`)
+// 모든 예약 처리 (취소 포함)
+const allBookings = rawData
+console.log(`전체 ${allBookings.length}개 예약 (취소 ${rawData.filter((b: any) => b.예약상태 === '예약취소').length}건 포함)`)
 
 // SQL INSERT 문 생성
 let sql = `-- 예약 데이터 INSERT (자동 생성: ${new Date().toISOString().split('T')[0]})
--- 총 ${activeBookings.length}개 (취소 건 제외)
+-- 총 ${allBookings.length}개 (취소 건 포함)
 
 `
 
 const BATCH_SIZE = 50
 
-for (let i = 0; i < activeBookings.length; i += BATCH_SIZE) {
-  const batch = activeBookings.slice(i, i + BATCH_SIZE)
+for (let i = 0; i < allBookings.length; i += BATCH_SIZE) {
+  const batch = allBookings.slice(i, i + BATCH_SIZE)
 
   sql += `-- Batch ${Math.floor(i / BATCH_SIZE) + 1}\n`
-  sql += `INSERT INTO bookings (studio_id, rental_date, time_slots, applicant_name, organization, phone, event_name, purpose, participants_count, payment_confirmed, status)\nVALUES\n`
+  sql += `INSERT INTO bookings (studio_id, rental_date, time_slots, applicant_name, organization, phone, event_name, purpose, participants_count, payment_confirmed, status, cancelled_at)\nVALUES\n`
 
   const values = batch.map((b: any) => {
     const studioId = getStudioId(b.신청시설)
@@ -96,8 +96,9 @@ for (let i = 0; i < activeBookings.length; i += BATCH_SIZE) {
     const statusCode = getStatusCode(b.예약상태)
     const participants = parseParticipants(b.행사규모)
     const paymentConfirmed = statusCode === 'CONFIRMED'
+    const cancelledAt = b.취소일시 ? `'${b.취소일시}'` : 'NULL'
 
-    return `  (${studioId}, '${rentalDate}', ARRAY[${timeSlots.join(',')}], '${escapeSQL(b.신청자명)}', '${escapeSQL(b.소속)}', '010-0000-0000', '${escapeSQL(b.행사명)}', '${escapeSQL(b.행사명)}', ${participants}, ${paymentConfirmed}, '${statusCode}')`
+    return `  (${studioId}, '${rentalDate}', ARRAY[${timeSlots.join(',')}], '${escapeSQL(b.신청자명)}', '${escapeSQL(b.소속)}', '010-0000-0000', '${escapeSQL(b.행사명)}', '${escapeSQL(b.행사명)}', ${participants}, ${paymentConfirmed}, '${statusCode}', ${cancelledAt})`
   })
 
   sql += values.join(',\n') + ';\n\n'
