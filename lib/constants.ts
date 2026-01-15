@@ -62,4 +62,5 @@ export const NAV_ITEMS = [
   { href: '/calendar', label: '캘린더', icon: 'calendar' },
   { href: '/equipments', label: '장비', icon: 'camera' },
   { href: '/statistics', label: '통계', icon: 'chart' },
+  { href: '/settings', label: '설정', icon: 'settings' },
 ]
