@@ -31,13 +31,17 @@ const subIndices = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
 data.forEach((row, idx) => {
   const originalIndex = row['연번'] || idx + 1;
   const rawLocation = row['위치'] || '';
-  const subLocation = row['위치(상세)'] || '';
+  const subLocation = row['위치 (상세)'] || row['위치(상세)'] || '';
   const name = row['물품명'] || '';
   const category = row['분류'] || '';
-  const spec = row['내용및사양'] || '';
+  const spec = row['내용 및 사양'] || row['내용및사양'] || '';
   const quantity = parseInt(row['수량']) || 1;
   const unit = row['단위'] || '';
-  const serialNumber = row['시리얼넘버'] || '';
+  const rawSerialNumber = row['시리얼넘버'] || '';
+  // 시리얼넘버를 줄바꿈으로 분리하여 배열로
+  const serialNumbers = rawSerialNumber
+    ? rawSerialNumber.split(/\r?\n/).map(s => s.trim()).filter(s => s)
+    : [];
   const notes = row['기타'] || '';
 
   if (!name) return;
@@ -78,7 +82,7 @@ data.forEach((row, idx) => {
         subLocation,
         quantity,
         unit,
-        serialNumber,
+        serialNumber: serialNumbers.join(', '),
         status,
         notes,
         isMaterial: true,
@@ -101,7 +105,7 @@ data.forEach((row, idx) => {
             subLocation,
             quantity: 1,
             unit,
-            serialNumber: serialNumber ? `${serialNumber}-${i + 1}` : '',
+            serialNumber: serialNumbers[i] || '',
             status,
             notes,
             isMaterial: false,
@@ -120,7 +124,7 @@ data.forEach((row, idx) => {
           subLocation,
           quantity: 1,
           unit,
-          serialNumber,
+          serialNumber: serialNumbers[0] || '',
           status,
           notes,
           isMaterial: false,
@@ -147,7 +151,7 @@ data.forEach((row, idx) => {
           subLocation,
           quantity,
           unit,
-          serialNumber,
+          serialNumber: serialNumbers.join(', '),
           status,
           notes,
           isMaterial: true,
@@ -168,7 +172,7 @@ data.forEach((row, idx) => {
               subLocation,
               quantity: 1,
               unit,
-              serialNumber: serialNumber ? `${serialNumber}-${i + 1}` : '',
+              serialNumber: serialNumbers[i] || '',
               status,
               notes,
               isMaterial: false,
@@ -187,7 +191,7 @@ data.forEach((row, idx) => {
             subLocation,
             quantity: 1,
             unit,
-            serialNumber,
+            serialNumber: serialNumbers[0] || '',
             status,
             notes,
             isMaterial: false,
@@ -218,7 +222,7 @@ data.forEach((row, idx) => {
             subLocation: detailSubLocation,
             quantity: actualQty,
             unit,
-            serialNumber,
+            serialNumber: serialNumbers.join(', '),
             status,
             notes,
             isMaterial: true,
@@ -239,7 +243,7 @@ data.forEach((row, idx) => {
                 subLocation: detailSubLocation,
                 quantity: 1,
                 unit,
-                serialNumber: serialNumber ? `${serialNumber}-${studioIdx * qtyPerStudio + i + 1}` : '',
+                serialNumber: serialNumbers[studioIdx * qtyPerStudio + i] || '',
                 status,
                 notes,
                 isMaterial: false,
@@ -248,6 +252,8 @@ data.forEach((row, idx) => {
           } else {
             counters[locationCode]++;
             const id = `${locationCode}-${String(counters[locationCode]).padStart(3, '0')}`;
+            // A/B 분할 시 각각의 시리얼 인덱스
+            const serialIdx = studioIdx === 0 ? 0 : qtyPerStudio;
             equipment.push({
               id,
               originalIndex: String(originalIndex),
@@ -258,7 +264,7 @@ data.forEach((row, idx) => {
               subLocation: detailSubLocation,
               quantity: 1,
               unit,
-              serialNumber,
+              serialNumber: serialNumbers[serialIdx] || '',
               status,
               notes,
               isMaterial: false,
