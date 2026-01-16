@@ -5,10 +5,26 @@ import { X, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase/client'
 import { cn } from '@/lib/utils'
 
+// 프로그램 타입 상수
+const PROGRAM_TYPES = [
+  { value: 'EXPERIENCE_DAY', label: '체험데이' },
+  { value: 'LECTURE', label: '강연' },
+  { value: 'CONSULTING', label: '컨설팅' },
+  { value: 'OTHER', label: '기타' },
+]
+
+// 미디어 타입 상수 (영상 송출 위치)
+const MEDIA_TYPES = [
+  { value: 'SPHERE', label: '구형(球形)' },
+  { value: 'PILLAR', label: '기둥형' },
+  { value: 'FACADE', label: '외부 파사드' },
+]
+
 // 타입 정의
 interface Program {
   id?: string
   name: string
+  program_type: string | null
   description: string | null
   event_date: string
   participants_count: number
@@ -20,6 +36,7 @@ interface Content {
   id?: string
   title: string
   content_type: string | null
+  media_type: string | null
   description: string | null
   production_date: string
   creator: string | null
@@ -57,6 +74,7 @@ export default function KPIModal({ isOpen, onClose, onSuccess, activeTab, editIt
   // 프로그램 폼
   const [programForm, setProgramForm] = useState<Program>({
     name: '',
+    program_type: 'OTHER',
     description: null,
     event_date: new Date().toISOString().split('T')[0],
     participants_count: 0,
@@ -68,6 +86,7 @@ export default function KPIModal({ isOpen, onClose, onSuccess, activeTab, editIt
   const [contentForm, setContentForm] = useState<Content>({
     title: '',
     content_type: 'VIDEO',
+    media_type: null,
     description: null,
     production_date: new Date().toISOString().split('T')[0],
     creator: null,
@@ -101,6 +120,7 @@ export default function KPIModal({ isOpen, onClose, onSuccess, activeTab, editIt
       // 신규 등록시 초기화
       setProgramForm({
         name: '',
+        program_type: 'OTHER',
         description: null,
         event_date: new Date().toISOString().split('T')[0],
         participants_count: 0,
@@ -110,6 +130,7 @@ export default function KPIModal({ isOpen, onClose, onSuccess, activeTab, editIt
       setContentForm({
         title: '',
         content_type: 'VIDEO',
+        media_type: null,
         description: null,
         production_date: new Date().toISOString().split('T')[0],
         creator: null,
@@ -229,6 +250,30 @@ export default function KPIModal({ isOpen, onClose, onSuccess, activeTab, editIt
                   placeholder="프로그램 이름을 입력하세요"
                 />
               </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className={labelClass}>프로그램 구분 *</label>
+                  <select
+                    value={programForm.program_type || 'OTHER'}
+                    onChange={(e) => setProgramForm({ ...programForm, program_type: e.target.value })}
+                    className={inputClass}
+                  >
+                    {PROGRAM_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className={labelClass}>행사일 *</label>
+                  <input
+                    type="date"
+                    value={programForm.event_date}
+                    onChange={(e) => setProgramForm({ ...programForm, event_date: e.target.value })}
+                    className={inputClass}
+                    required
+                  />
+                </div>
+              </div>
               <div>
                 <label className={labelClass}>설명</label>
                 <textarea
@@ -240,16 +285,6 @@ export default function KPIModal({ isOpen, onClose, onSuccess, activeTab, editIt
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className={labelClass}>행사일 *</label>
-                  <input
-                    type="date"
-                    value={programForm.event_date}
-                    onChange={(e) => setProgramForm({ ...programForm, event_date: e.target.value })}
-                    className={inputClass}
-                    required
-                  />
-                </div>
-                <div>
                   <label className={labelClass}>참석자 수</label>
                   <input
                     type="number"
@@ -259,18 +294,18 @@ export default function KPIModal({ isOpen, onClose, onSuccess, activeTab, editIt
                     min="0"
                   />
                 </div>
-              </div>
-              <div>
-                <label className={labelClass}>상태 *</label>
-                <select
-                  value={programForm.status}
-                  onChange={(e) => setProgramForm({ ...programForm, status: e.target.value })}
-                  className={inputClass}
-                >
-                  <option value="PLANNED">예정</option>
-                  <option value="COMPLETED">완료</option>
-                  <option value="CANCELLED">취소</option>
-                </select>
+                <div>
+                  <label className={labelClass}>상태 *</label>
+                  <select
+                    value={programForm.status}
+                    onChange={(e) => setProgramForm({ ...programForm, status: e.target.value })}
+                    className={inputClass}
+                  >
+                    <option value="PLANNED">예정</option>
+                    <option value="COMPLETED">완료</option>
+                    <option value="CANCELLED">취소</option>
+                  </select>
+                </div>
               </div>
               <div>
                 <label className={labelClass}>비고</label>
@@ -303,7 +338,7 @@ export default function KPIModal({ isOpen, onClose, onSuccess, activeTab, editIt
                   <label className={labelClass}>콘텐츠 유형</label>
                   <select
                     value={contentForm.content_type || 'VIDEO'}
-                    onChange={(e) => setContentForm({ ...contentForm, content_type: e.target.value })}
+                    onChange={(e) => setContentForm({ ...contentForm, content_type: e.target.value, media_type: e.target.value === 'VIDEO' ? contentForm.media_type : null })}
                     className={inputClass}
                   >
                     <option value="VIDEO">영상</option>
@@ -324,6 +359,23 @@ export default function KPIModal({ isOpen, onClose, onSuccess, activeTab, editIt
                   />
                 </div>
               </div>
+              {/* 영상일 경우에만 미디어 타입 표시 */}
+              {contentForm.content_type === 'VIDEO' && (
+                <div>
+                  <label className={labelClass}>송출 미디어</label>
+                  <select
+                    value={contentForm.media_type || ''}
+                    onChange={(e) => setContentForm({ ...contentForm, media_type: e.target.value || null })}
+                    className={inputClass}
+                  >
+                    <option value="">선택 안함</option>
+                    {MEDIA_TYPES.map((type) => (
+                      <option key={type.value} value={type.value}>{type.label}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-500 mt-1">영상이 송출되는 미디어 위치</p>
+                </div>
+              )}
               <div>
                 <label className={labelClass}>설명</label>
                 <textarea

@@ -11,10 +11,26 @@ import { cn } from '@/lib/utils'
 // KPI 탭 타입
 type KPITab = 'programs' | 'contents' | 'goods'
 
+// 프로그램 타입 상수
+const PROGRAM_TYPE_LABELS: Record<string, string> = {
+  EXPERIENCE_DAY: '체험데이',
+  LECTURE: '강연',
+  CONSULTING: '컨설팅',
+  OTHER: '기타',
+}
+
+// 미디어 타입 상수 (영상 송출 위치)
+const MEDIA_TYPE_LABELS: Record<string, string> = {
+  SPHERE: '구형',
+  PILLAR: '기둥형',
+  FACADE: '파사드',
+}
+
 // 프로그램 타입
 interface Program {
   id: string
   name: string
+  program_type: string | null
   description: string | null
   event_date: string
   participants_count: number
@@ -27,6 +43,7 @@ interface Content {
   id: string
   title: string
   content_type: string | null
+  media_type: string | null
   description: string | null
   production_date: string
   creator: string | null
@@ -231,7 +248,7 @@ export default function KPIPage() {
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className={cn(
                                 'px-2 py-0.5 text-xs rounded-full',
                                 program.status === 'COMPLETED'
@@ -241,6 +258,9 @@ export default function KPIPage() {
                                     : 'bg-yellow-500/20 text-yellow-400'
                               )}>
                                 {program.status === 'COMPLETED' ? '완료' : program.status === 'CANCELLED' ? '취소' : '예정'}
+                              </span>
+                              <span className="px-2 py-0.5 text-xs rounded-full bg-purple-500/20 text-purple-400">
+                                {PROGRAM_TYPE_LABELS[program.program_type || 'OTHER'] || '기타'}
                               </span>
                               <span className="text-xs text-gray-500 flex items-center gap-1">
                                 <Calendar className="w-3 h-3" />
@@ -292,7 +312,7 @@ export default function KPIPage() {
                       >
                         <div className="flex items-start justify-between gap-4">
                           <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-1">
+                            <div className="flex items-center gap-2 mb-1 flex-wrap">
                               <span className={cn(
                                 'px-2 py-0.5 text-xs rounded-full',
                                 content.status === 'PUBLISHED'
@@ -304,7 +324,14 @@ export default function KPIPage() {
                                 {content.status === 'PUBLISHED' ? '발행됨' : content.status === 'COMPLETED' ? '완료' : '진행중'}
                               </span>
                               {content.content_type && (
-                                <span className="text-xs text-gray-500">{content.content_type}</span>
+                                <span className="px-2 py-0.5 text-xs rounded-full bg-orange-500/20 text-orange-400">
+                                  {content.content_type === 'VIDEO' ? '영상' : content.content_type === 'IMAGE' ? '이미지' : content.content_type === 'DOCUMENT' ? '문서' : content.content_type === 'DESIGN' ? '디자인' : '기타'}
+                                </span>
+                              )}
+                              {content.media_type && (
+                                <span className="px-2 py-0.5 text-xs rounded-full bg-cyan-500/20 text-cyan-400">
+                                  {MEDIA_TYPE_LABELS[content.media_type] || content.media_type}
+                                </span>
                               )}
                             </div>
                             <h3 className="text-white font-medium">{content.title}</h3>
