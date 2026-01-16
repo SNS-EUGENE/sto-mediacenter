@@ -5,10 +5,18 @@ import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
 import Select from '@/components/ui/Select'
 import { getBookingsByDateRange } from '@/lib/supabase/queries'
+import { supabase } from '@/lib/supabase/client'
 import { STUDIOS } from '@/lib/constants'
 import { Calendar, TrendingUp, Clock, Users, Target, Award, Building2, Loader2, Presentation, Film, Gift, Handshake, Download, FileSpreadsheet, FileText } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { BookingWithStudio } from '@/types/supabase'
+
+// KPI 데이터 타입
+interface KPIData {
+  programCount: number
+  contentCount: number
+  goodsAchievementRate: number
+}
 
 // KPI 목표 및 계산 (2025년 목표)
 const KPI_TARGETS = {
@@ -150,6 +158,13 @@ export default function StatisticsPage() {
   const [monthBookings, setMonthBookings] = useState<BookingWithStudio[]>([])
   const [loading, setLoading] = useState(true)
 
+  // KPI 데이터 상태
+  const [kpiData, setKpiData] = useState<KPIData>({
+    programCount: 0,
+    contentCount: 0,
+    goodsAchievementRate: 0,
+  })
+
   // 연간 및 월간 데이터 로드
   const loadData = useCallback(async () => {
     setLoading(true)
@@ -171,6 +186,40 @@ export default function StatisticsPage() {
         const monthData = await getBookingsByDateRange(monthStart, monthEnd)
         setMonthBookings(monthData)
       }
+
+      // KPI 데이터 로드 (선택된 연도의 완료된 항목만)
+      const [programsRes, contentsRes, goodsRes] = await Promise.all([
+        supabase.from('programs')
+          .select('id, status, event_date')
+          .gte('event_date', yearStart)
+          .lte('event_date', yearEnd)
+          .eq('status', 'COMPLETED'),
+        supabase.from('contents')
+          .select('id, status, production_date')
+          .gte('production_date', yearStart)
+          .lte('production_date', yearEnd)
+          .in('status', ['COMPLETED', 'PUBLISHED']),
+        supabase.from('goods_events')
+          .select('id, target_count, achieved_count, status')
+          .eq('status', 'COMPLETED'),
+      ])
+
+      const programCount = programsRes.data?.length || 0
+      const contentCount = contentsRes.data?.length || 0
+
+      // 굿즈 달성률 계산: 완료된 굿즈/이벤트의 평균 달성률
+      let goodsAchievementRate = 0
+      if (goodsRes.data && goodsRes.data.length > 0) {
+        const totalRate = goodsRes.data.reduce((sum: number, item: { target_count: number; achieved_count: number }) => {
+          if (item.target_count > 0) {
+            return sum + (item.achieved_count / item.target_count) * 100
+          }
+          return sum
+        }, 0)
+        goodsAchievementRate = Math.round(totalRate / goodsRes.data.length)
+      }
+
+      setKpiData({ programCount, contentCount, goodsAchievementRate })
     } catch (err) {
       console.error('Failed to load statistics:', err)
     } finally {
@@ -360,8 +409,7 @@ export default function StatisticsPage() {
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                   {/* 1. 프로그램 운영 활성화 - 60회 */}
                   {(() => {
-                    // TODO: 실제 데이터 연동 필요 (현재는 placeholder)
-                    const current = 0 // 프로그램 운영 실적
+                    const current = kpiData.programCount
                     const rate = Math.round((current / KPI_TARGETS.programOperation.target) * 100)
                     const isAchieved = rate >= 100
                     return (
@@ -388,7 +436,15 @@ export default function StatisticsPage() {
                           <div className={cn('h-full rounded-full transition-all duration-500', isAchieved ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-rose-500 to-pink-500')} style={{ width: `${Math.min(rate, 100)}%` }} />
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500">데이터 입력 필요</span>
+                          {isAchieved ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              <Award className="w-3 h-3" /> 목표 달성
+                            </span>
+                          ) : current > 0 ? (
+                            <span className="text-xs text-gray-500">{KPI_TARGETS.programOperation.target - current}회 남음</span>
+                          ) : (
+                            <span className="text-xs text-gray-500">KPI 페이지에서 등록</span>
+                          )}
                         </div>
                       </div>
                     )
@@ -396,7 +452,7 @@ export default function StatisticsPage() {
 
                   {/* 2. 콘텐츠 기획 제작 - 60건 */}
                   {(() => {
-                    const current = 0 // 콘텐츠 제작 실적
+                    const current = kpiData.contentCount
                     const rate = Math.round((current / KPI_TARGETS.contentProduction.target) * 100)
                     const isAchieved = rate >= 100
                     return (
@@ -423,7 +479,15 @@ export default function StatisticsPage() {
                           <div className={cn('h-full rounded-full transition-all duration-500', isAchieved ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-orange-500 to-amber-500')} style={{ width: `${Math.min(rate, 100)}%` }} />
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500">데이터 입력 필요</span>
+                          {isAchieved ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              <Award className="w-3 h-3" /> 목표 달성
+                            </span>
+                          ) : current > 0 ? (
+                            <span className="text-xs text-gray-500">{KPI_TARGETS.contentProduction.target - current}건 남음</span>
+                          ) : (
+                            <span className="text-xs text-gray-500">KPI 페이지에서 등록</span>
+                          )}
                         </div>
                       </div>
                     )
@@ -431,7 +495,7 @@ export default function StatisticsPage() {
 
                   {/* 3. 굿즈 및 이벤트 운영 - 100% */}
                   {(() => {
-                    const current = 0 // 굿즈/이벤트 달성률
+                    const current = kpiData.goodsAchievementRate
                     const rate = current
                     const isAchieved = rate >= 100
                     return (
@@ -458,7 +522,15 @@ export default function StatisticsPage() {
                           <div className={cn('h-full rounded-full transition-all duration-500', isAchieved ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-emerald-500 to-teal-500')} style={{ width: `${Math.min(rate, 100)}%` }} />
                         </div>
                         <div className="flex items-center gap-2">
-                          <span className="text-xs text-gray-500">데이터 입력 필요</span>
+                          {isAchieved ? (
+                            <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                              <Award className="w-3 h-3" /> 목표 달성
+                            </span>
+                          ) : current > 0 ? (
+                            <span className="text-xs text-gray-500">{KPI_TARGETS.goodsEvent.target - current}% 남음</span>
+                          ) : (
+                            <span className="text-xs text-gray-500">KPI 페이지에서 등록</span>
+                          )}
                         </div>
                       </div>
                     )
