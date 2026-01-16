@@ -84,11 +84,14 @@
 - [x] 전체(연간) 옵션 추가
 - [x] 보고서 다운로드 (CSV)
 
-### Phase 10: STO 연동 - 작업 완료 (스켈레톤)
+### Phase 10: STO 연동 - 작업 완료
 - [x] STO 클라이언트 구조 (lib/sto/)
 - [x] STO 설정 페이지 (/settings)
 - [x] 알림 시스템 (NotificationProvider)
-- [ ] 실제 STO API 연동 (추후 구현)
+- [x] STO 웹 스크래핑 구현 (로그인, 목록, 상세)
+- [x] 2단계 인증 지원 (이메일 인증코드)
+- [x] 예약 동기화 API (/api/sto/sync)
+- [x] 상태 변경 감지 및 알림
 
 ### Phase 11: KPI 관리 - 작업 완료
 - [x] KPI 관리 페이지 (/kpi)
@@ -111,14 +114,33 @@
 |------|------|------|
 | UI/프론트엔드 | 98% | 모든 페이지 UI 완료, CRUD 모달 |
 | 장비 데이터 | 100% | 469개 장비/자재 파싱 완료, SQL seed 생성 |
-| 백엔드/API | 95% | Supabase CRUD 완료 |
+| 백엔드/API | 98% | Supabase CRUD + STO API 완료 |
 | 데이터 연동 | 100% | 모든 페이지 실시간 데이터 |
 | 인증 | 100% | Supabase Auth + 화이트리스트 |
 | 키오스크 | 100% | 전체화면 타임라인 완료 |
-| STO 연동 | 60% | 스켈레톤 구현, 실제 API 대기 |
-| KPI 관리 | 80% | UI 완료, CRUD 추가 필요 |
+| STO 연동 | 95% | 스크래핑 구현 완료, 테스트 필요 |
+| KPI 관리 | 90% | CRUD 모달 구현 완료 |
 
-### 최근 작업 내역 (2026-01-15 심야)
+### 최근 작업 내역 (2026-01-16)
+- **STO 예약 시스템 연동 구현**
+  - STO 웹 스크래핑 클라이언트 (lib/sto/client.ts)
+  - HTML 파서 구현 (lib/sto/parser.ts) - 목록/상세 페이지 파싱
+  - 예약 동기화 로직 (lib/sto/sync.ts) - 신규 예약, 상태 변경 감지
+  - API 라우트 구현 (/api/sto/login, /api/sto/sync, /api/sto/bookings)
+  - 2단계 인증 지원 (이메일 인증코드 입력)
+  - 설정 페이지 UI 업데이트 - 로그인, 동기화, 결과 표시
+  - 브라우저 알림 및 알림음 지원
+- **DB 스키마 업데이트**
+  - bookings 테이블에 sto_reqst_sn, email 컬럼 추가
+  - TypeScript 타입 정의 업데이트
+- **통계 페이지 KPI 연동**
+  - 하드코딩 값 대신 실제 DB 데이터 사용
+  - programs, contents, goods_events 테이블 연동
+- **KPI CRUD 모달 개선**
+  - 프로그램에 program_type 필드 추가
+  - 콘텐츠에 media_type 필드 추가 (VIDEO 타입)
+
+### 작업 내역 (2026-01-15 심야)
 - **AuthProvider 개발모드 수정**
   - 개발 환경에서 인증 체크 완전 스킵
   - 무한 로딩 문제 해결
@@ -319,19 +341,15 @@ npx ts-node scripts/generateEquipmentSQL.ts
 
 ## 남은 작업
 
-1. **STO 실제 연동**
-   - STO 시스템 API 확인 및 연동
-   - 자동 예약 동기화 구현
-   - 새 예약 알림 발송
+1. **STO 연동 테스트**
+   - 실제 STO 시스템 로그인 테스트
+   - 예약 동기화 테스트
+   - 이메일 인증코드 자동화 (선택사항)
 
-2. **KPI 관리 완성**
-   - 프로그램/콘텐츠/굿즈 CRUD 모달
-   - Supabase 테이블 생성 및 데이터 마이그레이션
-
-3. **RLS 정책 강화**
+2. **RLS 정책 강화**
    - 프로덕션용 RLS 정책 (authenticated 사용자만 CRUD)
 
-4. **실시간 구독**
+3. **실시간 구독**
    - Supabase Realtime 적용 (현재는 polling)
 
 ## 장비 데이터

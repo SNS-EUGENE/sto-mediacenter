@@ -2,3 +2,5 @@ node_modules
 example/
 node_modules/
 .next/
+.env.local
+reservation_example_html/

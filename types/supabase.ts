@@ -35,6 +35,7 @@ export interface Booking {
   applicant_name: string;
   organization: string | null;
   phone: string;
+  email: string | null;
   event_name: string | null;
   purpose: string | null;
   participants_count: number;
@@ -42,6 +43,7 @@ export interface Booking {
   status: BookingStatus;
   fee: number | null; // 이용료
   cancelled_at: string | null; // 취소 일시
+  sto_reqst_sn: string | null; // STO 예약 고유번호
   created_at: string;
   updated_at: string;
 }
@@ -79,12 +81,14 @@ export interface BookingWithStudio extends Booking {
 
 export type StudioInsert = Omit<Studio, 'id' | 'created_at'>;
 
-export type BookingInsert = Omit<Booking, 'id' | 'created_at' | 'updated_at'> & {
+export type BookingInsert = Omit<Booking, 'id' | 'created_at' | 'updated_at' | 'email' | 'sto_reqst_sn'> & {
   studio_id: number;
   rental_date: string;
   time_slots: number[];
   applicant_name: string;
   phone: string;
+  email?: string | null;
+  sto_reqst_sn?: string | null;
 };
 
 export type EquipmentInsert = Omit<Equipment, 'id' | 'created_at' | 'updated_at'> & {

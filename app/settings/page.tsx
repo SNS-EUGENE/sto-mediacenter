@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
-import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff } from 'lucide-react'
+import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // STO 연동 상태 타입
@@ -12,27 +12,70 @@ interface STOStatus {
   lastSync: Date | null
   nextSync: Date | null
   newBookingsCount: number
+  statusChangesCount: number
+}
+
+// 동기화 결과 타입
+interface SyncResult {
+  success: boolean
+  totalCount: number
+  newBookingsCount: number
+  statusChangesCount: number
+  newBookings: {
+    reqstSn: string
+    facilityName: string
+    rentalDate: string
+    applicantName: string
+    status: string
+  }[]
+  statusChanges: {
+    reqstSn: string
+    applicantName: string
+    rentalDate: string
+    previousStatus: string
+    newStatus: string
+  }[]
+  errors: string[]
 }
 
 export default function SettingsPage() {
   // STO 연동 설정
   const [stoEmail, setStoEmail] = useState('')
   const [stoPassword, setStoPassword] = useState('')
+  const [verificationCode, setVerificationCode] = useState('')
   const [showPassword, setShowPassword] = useState(false)
+  const [needsVerification, setNeedsVerification] = useState(false)
   const [stoStatus, setStoStatus] = useState<STOStatus>({
     connected: false,
     lastSync: null,
     nextSync: null,
     newBookingsCount: 0,
+    statusChangesCount: 0,
   })
   const [isTesting, setIsTesting] = useState(false)
   const [isSyncing, setIsSyncing] = useState(false)
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [syncResult, setSyncResult] = useState<SyncResult | null>(null)
 
   // 알림 설정
   const [notifyOnNewBooking, setNotifyOnNewBooking] = useState(true)
   const [notifySound, setNotifySound] = useState(true)
   const [pollInterval, setPollInterval] = useState(5) // 분 단위
+
+  // STO 세션 상태 확인
+  const checkSTOStatus = useCallback(async () => {
+    try {
+      const response = await fetch('/api/sto/sync')
+      const data = await response.json()
+      setStoStatus(prev => ({
+        ...prev,
+        connected: data.isLoggedIn,
+        lastSync: data.lastSyncTime ? new Date(data.lastSyncTime) : null,
+      }))
+    } catch (error) {
+      console.error('STO 상태 확인 실패:', error)
+    }
+  }, [])
 
   // 저장된 설정 로드 (localStorage)
   useEffect(() => {
@@ -45,12 +88,21 @@ export default function SettingsPage() {
     if (savedPollInterval) setPollInterval(Number(savedPollInterval))
     if (savedNotifyNew !== null) setNotifyOnNewBooking(savedNotifyNew === 'true')
     if (savedNotifySound !== null) setNotifySound(savedNotifySound === 'true')
-  }, [])
 
-  // STO 연결 테스트
-  const handleTestConnection = async () => {
+    // STO 상태 확인
+    checkSTOStatus()
+  }, [checkSTOStatus])
+
+  // STO 로그인
+  const handleLogin = async () => {
     if (!stoEmail || !stoPassword) {
       setTestResult({ success: false, message: '이메일과 비밀번호를 입력해주세요' })
+      return
+    }
+
+    // 인증코드 필요한 상태에서 인증코드 없이 요청하면 안됨
+    if (needsVerification && !verificationCode) {
+      setTestResult({ success: false, message: '이메일로 받은 인증코드를 입력해주세요' })
       return
     }
 
@@ -58,25 +110,47 @@ export default function SettingsPage() {
     setTestResult(null)
 
     try {
-      // TODO: 실제 STO API 연결 테스트
-      // const response = await fetch('/api/sto/test', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify({ email: stoEmail, password: stoPassword }),
-      // })
-
-      // 플레이스홀더 - 실제 구현 시 교체
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-
-      // 임시 결과
-      setTestResult({
-        success: false,
-        message: 'STO 시스템 연동은 추후 구현 예정입니다. (현재 테스트 모드)',
+      const response = await fetch('/api/sto/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: stoEmail,
+          password: stoPassword,
+          verificationCode: needsVerification ? verificationCode : undefined,
+        }),
       })
+
+      const data = await response.json()
+
+      if (data.needsVerification) {
+        setNeedsVerification(true)
+        setTestResult({
+          success: false,
+          message: '이메일(sns.mediacenter@gmail.com)로 인증코드가 발송되었습니다. 인증코드를 입력해주세요.',
+        })
+      } else if (data.success) {
+        setNeedsVerification(false)
+        setVerificationCode('')
+        setStoStatus(prev => ({
+          ...prev,
+          connected: true,
+        }))
+        setTestResult({
+          success: true,
+          message: 'STO 시스템에 성공적으로 연결되었습니다.',
+        })
+        // 저장
+        localStorage.setItem('sto_email', stoEmail)
+      } else {
+        setTestResult({
+          success: false,
+          message: data.error || '로그인에 실패했습니다.',
+        })
+      }
     } catch {
       setTestResult({
         success: false,
-        message: '연결 테스트 실패. 네트워크를 확인해주세요.',
+        message: '연결 실패. 네트워크를 확인해주세요.',
       })
     } finally {
       setIsTesting(false)
@@ -91,14 +165,56 @@ export default function SettingsPage() {
     }
 
     setIsSyncing(true)
+    setSyncResult(null)
+
     try {
-      // TODO: 실제 동기화 API 호출
-      await new Promise((resolve) => setTimeout(resolve, 2000))
-      setStoStatus((prev) => ({
-        ...prev,
-        lastSync: new Date(),
-        nextSync: new Date(Date.now() + pollInterval * 60 * 1000),
-      }))
+      const response = await fetch('/api/sto/sync', {
+        method: 'POST',
+      })
+
+      const data: SyncResult = await response.json()
+      setSyncResult(data)
+
+      if (data.success) {
+        setStoStatus(prev => ({
+          ...prev,
+          lastSync: new Date(),
+          nextSync: new Date(Date.now() + pollInterval * 60 * 1000),
+          newBookingsCount: data.newBookingsCount,
+          statusChangesCount: data.statusChangesCount,
+        }))
+
+        // 새 예약이나 상태 변경이 있으면 알림
+        if (notifyOnNewBooking && (data.newBookingsCount > 0 || data.statusChangesCount > 0)) {
+          // 브라우저 알림
+          if ('Notification' in window && Notification.permission === 'granted') {
+            new Notification('STO 예약 알림', {
+              body: `신규 예약 ${data.newBookingsCount}건, 상태 변경 ${data.statusChangesCount}건`,
+              icon: '/favicon.ico',
+            })
+          }
+          // 알림음
+          if (notifySound) {
+            const audio = new Audio('/notification.mp3')
+            audio.play().catch(() => {})
+          }
+        }
+
+        setTestResult({
+          success: true,
+          message: `동기화 완료! 신규 ${data.newBookingsCount}건, 상태변경 ${data.statusChangesCount}건`,
+        })
+      } else {
+        setTestResult({
+          success: false,
+          message: data.errors?.join(', ') || '동기화 실패',
+        })
+      }
+    } catch {
+      setTestResult({
+        success: false,
+        message: '동기화 중 오류가 발생했습니다.',
+      })
     } finally {
       setIsSyncing(false)
     }
@@ -200,6 +316,27 @@ export default function SettingsPage() {
                 </p>
               </div>
 
+              {/* 인증코드 입력 (2단계 인증 필요시) */}
+              {needsVerification && (
+                <div>
+                  <label className="block text-sm text-gray-400 mb-2">
+                    <Key className="w-4 h-4 inline mr-1" />
+                    이메일 인증코드
+                  </label>
+                  <input
+                    type="text"
+                    value={verificationCode}
+                    onChange={(e) => setVerificationCode(e.target.value)}
+                    placeholder="6자리 인증코드 입력"
+                    maxLength={6}
+                    className="w-full px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50 text-center text-lg tracking-widest"
+                  />
+                  <p className="text-xs text-yellow-400 mt-2">
+                    * sns.mediacenter@gmail.com 으로 발송된 인증코드를 입력하세요
+                  </p>
+                </div>
+              )}
+
               {/* 테스트 결과 */}
               {testResult && (
                 <div
@@ -220,19 +357,68 @@ export default function SettingsPage() {
               )}
 
               <button
-                onClick={handleTestConnection}
-                disabled={isTesting}
+                onClick={handleLogin}
+                disabled={isTesting || stoStatus.connected}
                 className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-colors disabled:opacity-50"
               >
                 {isTesting ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    연결 테스트 중...
+                    {needsVerification ? '인증 중...' : '로그인 중...'}
+                  </>
+                ) : stoStatus.connected ? (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    연결됨
+                  </>
+                ) : needsVerification ? (
+                  <>
+                    <Key className="w-4 h-4" />
+                    인증코드 확인
                   </>
                 ) : (
-                  <>연결 테스트</>
+                  <>STO 로그인</>
                 )}
               </button>
+
+              {/* 동기화 결과 상세 */}
+              {syncResult && (syncResult.newBookingsCount > 0 || syncResult.statusChangesCount > 0) && (
+                <div className="mt-4 p-4 rounded-xl bg-white/5 border border-white/10">
+                  <h4 className="text-sm font-medium text-white mb-3">동기화 결과</h4>
+
+                  {syncResult.newBookings.length > 0 && (
+                    <div className="mb-3">
+                      <p className="text-xs text-green-400 mb-2">신규 예약 ({syncResult.newBookingsCount}건)</p>
+                      <div className="space-y-1">
+                        {syncResult.newBookings.slice(0, 5).map((b) => (
+                          <div key={b.reqstSn} className="text-xs text-gray-400">
+                            • {b.rentalDate} {b.facilityName} - {b.applicantName}
+                          </div>
+                        ))}
+                        {syncResult.newBookings.length > 5 && (
+                          <div className="text-xs text-gray-500">...외 {syncResult.newBookings.length - 5}건</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {syncResult.statusChanges.length > 0 && (
+                    <div>
+                      <p className="text-xs text-yellow-400 mb-2">상태 변경 ({syncResult.statusChangesCount}건)</p>
+                      <div className="space-y-1">
+                        {syncResult.statusChanges.slice(0, 5).map((c) => (
+                          <div key={c.reqstSn} className="text-xs text-gray-400">
+                            • {c.applicantName}: {c.previousStatus} → {c.newStatus}
+                          </div>
+                        ))}
+                        {syncResult.statusChanges.length > 5 && (
+                          <div className="text-xs text-gray-500">...외 {syncResult.statusChanges.length - 5}건</div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
           </GlassCard>
 

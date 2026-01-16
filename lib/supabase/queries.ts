@@ -138,7 +138,10 @@ export async function updateBookingStatus(
 
 // 예약 생성
 export async function createBooking(
-  bookingData: Omit<Booking, 'id' | 'created_at' | 'updated_at'>
+  bookingData: Omit<Booking, 'id' | 'created_at' | 'updated_at' | 'email' | 'sto_reqst_sn'> & {
+    email?: string | null
+    sto_reqst_sn?: string | null
+  }
 ): Promise<Booking> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)
