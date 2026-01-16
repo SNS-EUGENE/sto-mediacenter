@@ -1,13 +1,16 @@
 'use client'
 
+import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { X, Target, Settings, Tv } from 'lucide-react'
 
 export default function MobileNav() {
   const pathname = usePathname()
+  const [showMore, setShowMore] = useState(false)
 
-  const navItems = [
+  const mainNavItems = [
     {
       href: '/',
       label: '홈',
@@ -36,16 +39,6 @@ export default function MobileNav() {
       ),
     },
     {
-      href: '/equipments',
-      label: '장비',
-      icon: (
-        <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
-      ),
-    },
-    {
       href: '/statistics',
       label: '통계',
       icon: (
@@ -56,29 +49,89 @@ export default function MobileNav() {
     },
   ]
 
-  return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
-      <div className="mobile-nav">
-        <div className="flex items-center justify-around px-1 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
-          {navItems.map((item) => {
-            const isActive = pathname === item.href
+  const moreNavItems = [
+    { href: '/equipments', label: '장비 관리', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg> },
+    { href: '/live', label: '실시간 현황', icon: <Tv className="w-5 h-5" /> },
+    { href: '/kpi', label: 'KPI 관리', icon: <Target className="w-5 h-5" /> },
+    { href: '/settings', label: '설정', icon: <Settings className="w-5 h-5" /> },
+  ]
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  'nav-tab',
-                  isActive && 'active'
-                )}
-              >
-                {item.icon}
-                <span className="text-[10px] font-medium">{item.label}</span>
-              </Link>
-            )
-          })}
+  const isMoreActive = moreNavItems.some(item => pathname === item.href)
+
+  return (
+    <>
+      {/* More Menu Overlay */}
+      {showMore && (
+        <div className="lg:hidden fixed inset-0 z-40 bg-black/60 backdrop-blur-sm" onClick={() => setShowMore(false)}>
+          <div
+            className="absolute bottom-20 left-4 right-4 bg-[#1a1a24]/95 backdrop-blur-xl rounded-2xl border border-white/10 p-2 shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between px-3 py-2 mb-1">
+              <span className="text-sm font-medium text-white">더보기</span>
+              <button onClick={() => setShowMore(false)} className="p-1 rounded-lg hover:bg-white/10">
+                <X className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+            <div className="grid grid-cols-2 gap-1">
+              {moreNavItems.map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  onClick={() => setShowMore(false)}
+                  className={cn(
+                    'flex items-center gap-3 px-3 py-3 rounded-xl transition-colors',
+                    pathname === item.href
+                      ? 'bg-purple-500/20 text-purple-400'
+                      : 'text-gray-400 hover:bg-white/5 hover:text-white'
+                  )}
+                >
+                  {item.icon}
+                  <span className="text-sm">{item.label}</span>
+                </Link>
+              ))}
+            </div>
+          </div>
         </div>
-      </div>
-    </nav>
+      )}
+
+      {/* Bottom Nav */}
+      <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50">
+        <div className="mobile-nav">
+          <div className="flex items-center justify-around px-1 pt-1.5 pb-[max(0.375rem,env(safe-area-inset-bottom))]">
+            {mainNavItems.map((item) => {
+              const isActive = pathname === item.href
+
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className={cn(
+                    'nav-tab',
+                    isActive && 'active'
+                  )}
+                >
+                  {item.icon}
+                  <span className="text-[10px] font-medium">{item.label}</span>
+                </Link>
+              )
+            })}
+            {/* More Button */}
+            <button
+              onClick={() => setShowMore(true)}
+              className={cn(
+                'nav-tab',
+                isMoreActive && 'active'
+              )}
+            >
+              <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 6h16M4 12h16M4 18h16"/>
+              </svg>
+              <span className="text-[10px] font-medium">더보기</span>
+            </button>
+          </div>
+        </div>
+      </nav>
+    </>
   )
 }

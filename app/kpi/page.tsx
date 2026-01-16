@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
+import KPIModal from '@/components/modals/KPIModal'
 import { supabase } from '@/lib/supabase/client'
 import { Plus, Presentation, Film, Gift, Edit, Trash2, Loader2, Calendar, CheckCircle } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -169,7 +170,7 @@ export default function KPIPage() {
         </div>
 
         {/* Tab KPI Summary */}
-        <div className="flex-shrink-0 grid grid-cols-3 gap-4 mb-6">
+        <div className="flex-shrink-0 grid grid-cols-3 gap-2 sm:gap-4 mb-4 sm:mb-6">
           {tabs.map((tab) => {
             const isActive = activeTab === tab.id
             const rate = tab.isPercent ? tab.count : Math.round((tab.count / tab.target) * 100)
@@ -179,26 +180,26 @@ export default function KPIPage() {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={cn(
-                  'p-4 rounded-xl border transition-all text-left',
+                  'p-2 sm:p-4 rounded-xl border transition-all text-left',
                   isActive
                     ? `bg-${tab.color}-500/20 border-${tab.color}-500/50`
                     : 'bg-white/5 border-white/10 hover:bg-white/[0.07]'
                 )}
               >
-                <div className="flex items-center gap-2 mb-2">
-                  <div className={cn('p-1.5 rounded-lg', `bg-${tab.color}-500/20`)}>
+                <div className="flex items-center gap-1.5 sm:gap-2 mb-1 sm:mb-2">
+                  <div className={cn('p-1 sm:p-1.5 rounded-lg', `bg-${tab.color}-500/20`)}>
                     {tab.icon}
                   </div>
-                  <span className="text-sm text-white font-medium">{tab.label}</span>
+                  <span className="text-xs sm:text-sm text-white font-medium truncate">{tab.label}</span>
                 </div>
-                <div className="flex items-baseline gap-2">
-                  <span className="text-2xl font-bold text-white">
+                <div className="flex items-baseline gap-1 sm:gap-2">
+                  <span className="text-lg sm:text-2xl font-bold text-white">
                     {tab.count}
                     {tab.isPercent && '%'}
                   </span>
-                  <span className="text-sm text-gray-500">/ {tab.target}{tab.isPercent ? '%' : '건'}</span>
+                  <span className="text-xs sm:text-sm text-gray-500 hidden xs:inline">/ {tab.target}{tab.isPercent ? '%' : '건'}</span>
                 </div>
-                <div className="h-1.5 bg-white/10 rounded-full overflow-hidden mt-2">
+                <div className="h-1 sm:h-1.5 bg-white/10 rounded-full overflow-hidden mt-1.5 sm:mt-2">
                   <div
                     className={cn('h-full rounded-full', `bg-${tab.color}-500`)}
                     style={{ width: `${Math.min(rate, 100)}%` }}
@@ -409,30 +410,17 @@ export default function KPIPage() {
           )}
         </GlassCard>
 
-        {/* TODO: Add/Edit Modal - 실제 구현 필요 */}
-        {showModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-            <div className="w-full max-w-md bg-[#1a1a24] rounded-2xl border border-white/10 p-6">
-              <h3 className="text-lg font-semibold text-white mb-4">
-                {editItem ? '항목 수정' : '새 항목 추가'}
-              </h3>
-              <p className="text-gray-400 text-sm mb-4">
-                현재 탭: {activeTab === 'programs' ? '프로그램' : activeTab === 'contents' ? '콘텐츠' : '굿즈/이벤트'}
-              </p>
-              <p className="text-yellow-500/80 text-sm mb-4">
-                * 폼 구현 예정 - Supabase 테이블 생성 후 완전한 CRUD 기능 추가
-              </p>
-              <div className="flex justify-end gap-2">
-                <button
-                  onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-lg text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
-                >
-                  닫기
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* KPI Modal */}
+        <KPIModal
+          isOpen={showModal}
+          onClose={() => {
+            setShowModal(false)
+            setEditItem(null)
+          }}
+          onSuccess={loadData}
+          activeTab={activeTab}
+          editItem={editItem}
+        />
       </div>
     </AdminLayout>
   )
