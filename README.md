@@ -6,6 +6,11 @@
 
 3개 스튜디오의 예약 현황을 관리하고 통계를 확인할 수 있는 관리자 대시보드입니다.
 
+<img width="1915" height="907" alt="image" src="https://github.com/user-attachments/assets/03d46666-4836-4eaf-85b8-b4b231ec2160" />
+<img width="1915" height="907" alt="image" src="https://github.com/user-attachments/assets/04af3287-91eb-40e4-8519-0e1c168e0ed0" />
+
+
+
 ### 스튜디오 구성
 
 | ID | 정식 명칭 | 약칭 | 설명 | 수용 인원 |
