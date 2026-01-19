@@ -4,3 +4,10 @@ node_modules/
 .next/
 .env.local
 reservation_example_html/
+
+# Sensitive/temporary files
+*.har
+*.xlsx
+nul
+tsconfig.tsbuildinfo
+sto-network-tracker.js

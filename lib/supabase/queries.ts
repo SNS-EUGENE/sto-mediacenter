@@ -2,7 +2,7 @@
 // 현재는 JSON 데이터를 사용하고 있으며, Supabase 연동 시 이 파일을 사용합니다.
 
 import { supabase } from './client'
-import type { Booking, BookingWithStudio, Equipment, Studio } from '@/types/supabase'
+import type { Booking, BookingInsert, BookingWithStudio, Equipment, Studio } from '@/types/supabase'
 import type { BookingFilters, PaginatedResponse, PaginationParams } from '@/types'
 import { getComputedStatus } from '@/lib/utils/bookingStatus'
 
@@ -138,10 +138,7 @@ export async function updateBookingStatus(
 
 // 예약 생성
 export async function createBooking(
-  bookingData: Omit<Booking, 'id' | 'created_at' | 'updated_at' | 'email' | 'sto_reqst_sn'> & {
-    email?: string | null
-    sto_reqst_sn?: string | null
-  }
+  bookingData: BookingInsert
 ): Promise<Booking> {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data, error } = await (supabase as any)

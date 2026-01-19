@@ -44,6 +44,20 @@ export interface Booking {
   fee: number | null; // 이용료
   cancelled_at: string | null; // 취소 일시
   sto_reqst_sn: string | null; // STO 예약 고유번호
+  // STO 상세 정보
+  special_note: string | null; // 특이사항
+  user_type: string | null; // 사용자 신청 유형
+  discount_rate: number | null; // 대관료 할인율 (%)
+  company_phone: string | null; // 전화번호
+  business_license: string | null; // 사업자등록증 파일명
+  receipt_type: string | null; // 증빙 발행 유형
+  business_number: string | null; // 사업자번호
+  has_no_show: boolean | null; // No-Show 여부
+  no_show_memo: string | null; // No-Show 메모
+  studio_usage_method: string | null; // 스튜디오 사용 방식
+  file_delivery_method: string | null; // 파일 원본 수령 방법
+  pre_meeting_contact: string | null; // 사전 미팅 연락처
+  other_inquiry: string | null; // 기타 문의사항
   created_at: string;
   updated_at: string;
 }
@@ -81,14 +95,36 @@ export interface BookingWithStudio extends Booking {
 
 export type StudioInsert = Omit<Studio, 'id' | 'created_at'>;
 
-export type BookingInsert = Omit<Booking, 'id' | 'created_at' | 'updated_at' | 'email' | 'sto_reqst_sn'> & {
+export type BookingInsert = {
   studio_id: number;
   rental_date: string;
   time_slots: number[];
   applicant_name: string;
   phone: string;
+  organization?: string | null;
   email?: string | null;
+  event_name?: string | null;
+  purpose?: string | null;
+  participants_count?: number;
+  payment_confirmed?: boolean;
+  status?: BookingStatus;
+  fee?: number | null;
+  cancelled_at?: string | null;
   sto_reqst_sn?: string | null;
+  // STO 상세 필드 (선택)
+  special_note?: string | null;
+  user_type?: string | null;
+  discount_rate?: number | null;
+  company_phone?: string | null;
+  business_license?: string | null;
+  receipt_type?: string | null;
+  business_number?: string | null;
+  has_no_show?: boolean | null;
+  no_show_memo?: string | null;
+  studio_usage_method?: string | null;
+  file_delivery_method?: string | null;
+  pre_meeting_contact?: string | null;
+  other_inquiry?: string | null;
 };
 
 export type EquipmentInsert = Omit<Equipment, 'id' | 'created_at' | 'updated_at'> & {

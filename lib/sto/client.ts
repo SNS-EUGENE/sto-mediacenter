@@ -13,79 +13,317 @@ import { parseBookingList, parseBookingDetail, parseTotalCount, parseTotalPages 
 // 세션 저장소 (메모리 기반)
 let currentSession: STOSession | null = null
 
+// 임시 저장소 (인증 과정에서 사용)
+let pendingCredentials: { empId: string; password: string; userEmail: string; cookies: string } | null = null
+
 /**
- * STO 시스템 로그인
- * NOTE: 이 시스템은 2단계 인증(이메일 인증코드)을 사용합니다.
- * 실제 운영에서는 이메일 인증코드를 수동으로 입력해야 합니다.
+ * STO 시스템 로그인 - 1단계: 인증코드 요청
+ * 아이디/비밀번호 확인 후 이메일로 인증코드 발송
  */
-export async function loginToSTO(
-  credentials: STOCredentials,
-  verificationCode?: string
-): Promise<{ success: boolean; needsVerification?: boolean; session?: STOSession; error?: string }> {
+export async function requestVerificationCode(
+  credentials: STOCredentials
+): Promise<{ success: boolean; error?: string }> {
   try {
-    console.log('[STO] 로그인 시도:', credentials.email)
+    console.log('[STO] 인증코드 요청 시작:', credentials.email)
 
     // 1단계: 로그인 페이지 접속하여 세션 쿠키 획득
     const loginPageResponse = await fetch(`${STO_CONFIG.baseUrl}${STO_CONFIG.loginPath}`, {
       method: 'GET',
       headers: {
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
       },
+      redirect: 'follow',
     })
 
-    let cookies = loginPageResponse.headers.get('set-cookie') || ''
+    // set-cookie 헤더에서 쿠키 추출 (여러 개일 수 있음)
+    const setCookieHeader = loginPageResponse.headers.get('set-cookie') || ''
+    // JSESSIONID 추출
+    const sessionMatch = setCookieHeader.match(/JSESSIONID=([^;]+)/)
+    let cookies = sessionMatch ? `JSESSIONID=${sessionMatch[1]}` : ''
 
-    // 2단계: 로그인 폼 제출
+    console.log('[STO] 로그인 페이지 접속')
+    console.log('[STO] set-cookie 헤더:', setCookieHeader)
+    console.log('[STO] 추출된 쿠키:', cookies)
+
+    // 2단계: 아이디/비밀번호 확인 및 인증코드 발송 요청
+    // 필드명: empId, password (STO 시스템 기준)
     const formData = new URLSearchParams()
-    formData.append('userId', credentials.email)
-    formData.append('userPwd', credentials.password)
-    if (verificationCode) {
-      formData.append('authCode', verificationCode)
-    }
+    formData.append('empId', credentials.email)
+    formData.append('password', credentials.password)
 
-    const loginResponse = await fetch(`${STO_CONFIG.baseUrl}${STO_CONFIG.loginActionPath}`, {
+    console.log('[STO] idPwChk 요청 전송...')
+    const response = await fetch(`${STO_CONFIG.baseUrl}/sto3788/loginout/idPwChk`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Cookie': cookies,
+        'Referer': `${STO_CONFIG.baseUrl}${STO_CONFIG.loginPath}`,
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
       },
       body: formData.toString(),
       redirect: 'manual',
     })
 
     // 쿠키 업데이트
-    const newCookies = loginResponse.headers.get('set-cookie')
+    const newCookies = response.headers.get('set-cookie')
     if (newCookies) {
-      cookies = newCookies
-    }
-
-    // 응답 분석
-    const responseText = await loginResponse.text()
-
-    // 인증코드 필요 여부 확인
-    if (responseText.includes('인증코드') || responseText.includes('인증 코드')) {
-      return { success: false, needsVerification: true }
-    }
-
-    // 로그인 성공 여부 확인 (리다이렉트 또는 dashboard 접근)
-    if (loginResponse.status === 302 || responseText.includes('dashboard')) {
-      const session: STOSession = {
-        cookies,
-        expiresAt: new Date(Date.now() + STO_CONFIG.sessionExpiryMinutes * 60 * 1000),
-        isLoggedIn: true,
+      const newSessionMatch = newCookies.match(/JSESSIONID=([^;]+)/)
+      if (newSessionMatch) {
+        cookies = `JSESSIONID=${newSessionMatch[1]}`
       }
-      currentSession = session
-      console.log('[STO] 로그인 성공')
-      return { success: true, session }
     }
 
-    // 로그인 실패
-    return { success: false, error: '로그인에 실패했습니다. 아이디와 비밀번호를 확인하세요.' }
+    console.log('[STO] idPwChk 응답 상태:', response.status)
+    console.log('[STO] idPwChk 응답 location:', response.headers.get('location'))
+
+    // 302 리다이렉트면 세션 문제
+    if (response.status === 302) {
+      const location = response.headers.get('location') || ''
+      if (location.includes('logout') || location.includes('login')) {
+        console.log('[STO] 세션 문제로 리다이렉트됨')
+        return { success: false, error: '세션 연결에 실패했습니다. 다시 시도해주세요.' }
+      }
+    }
+
+    const responseText = await response.text()
+    console.log('[STO] idPwChk 응답 길이:', responseText.length)
+    console.log('[STO] idPwChk 응답 미리보기:', responseText.substring(0, 200))
+
+    // JSON 응답 파싱 시도
+    try {
+      const data = JSON.parse(responseText)
+
+      if (data.status === 'success' || data.result === 'success' || data.success === true) {
+        // 인증코드 발송 성공 - 자격증명 임시 저장
+        // data.data에 사용자 이메일이 포함됨
+        const userEmail = data.data || data.emgEmail || data.email || ''
+        pendingCredentials = { empId: credentials.email, password: credentials.password, userEmail, cookies }
+        console.log('[STO] 인증코드 발송 성공, 이메일:', userEmail)
+        return { success: true }
+      } else {
+        // 로그인 실패 (아이디/비밀번호 오류)
+        const errorMsg = data.message || data.msg || '아이디 또는 비밀번호가 올바르지 않습니다.'
+        console.log('[STO] 인증코드 요청 실패:', errorMsg, 'data:', data)
+        return { success: false, error: errorMsg }
+      }
+    } catch {
+      // JSON이 아닌 경우 텍스트로 판단
+      if (responseText.includes('success') || responseText.includes('발송')) {
+        pendingCredentials = { empId: credentials.email, password: credentials.password, userEmail: '', cookies }
+        return { success: true }
+      }
+      console.log('[STO] 응답 파싱 실패:', responseText)
+      return { success: false, error: '서버 응답을 처리할 수 없습니다.' }
+    }
   } catch (error) {
-    console.error('[STO] 로그인 오류:', error)
-    return { success: false, error: `로그인 오류: ${error}` }
+    console.error('[STO] 인증코드 요청 오류:', error)
+    return { success: false, error: `오류 발생: ${error}` }
   }
+}
+
+/**
+ * STO 시스템 로그인 - 2단계: 인증코드 확인 및 로그인 완료
+ */
+export async function verifyCodeAndLogin(
+  verificationCode: string
+): Promise<{ success: boolean; session?: STOSession; error?: string }> {
+  if (!pendingCredentials) {
+    return { success: false, error: '먼저 인증코드를 요청하세요.' }
+  }
+
+  try {
+    console.log('[STO] 인증코드 확인 시도')
+
+    // 필드명: email, inputCode, chk (STO 시스템 기준)
+    const formData = new URLSearchParams()
+    formData.append('email', pendingCredentials.userEmail)
+    formData.append('inputCode', verificationCode)
+    formData.append('chk', 'login')
+
+    const response = await fetch(`${STO_CONFIG.baseUrl}/sto3788/loginout/certification`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Cookie': pendingCredentials.cookies,
+        'Referer': `${STO_CONFIG.baseUrl}${STO_CONFIG.loginPath}`,
+        'X-Requested-With': 'XMLHttpRequest',
+        'Accept': 'application/json, text/javascript, */*; q=0.01',
+      },
+      body: formData.toString(),
+    })
+
+    // 쿠키 업데이트 - JSESSIONID 추출
+    let cookies = pendingCredentials.cookies
+    const newCookies = response.headers.get('set-cookie')
+    console.log('[STO] certification set-cookie:', newCookies)
+    if (newCookies) {
+      const sessionMatch = newCookies.match(/JSESSIONID=([^;]+)/)
+      if (sessionMatch) {
+        cookies = `JSESSIONID=${sessionMatch[1]}`
+        console.log('[STO] certification 후 쿠키 업데이트:', cookies)
+      }
+    }
+
+    const responseText = await response.text()
+    console.log('[STO] certification 응답:', responseText)
+
+    try {
+      const data = JSON.parse(responseText)
+
+      if (data.status === 'success' || data.result === 'success' || data.success === true) {
+        // 인증 성공 - 이제 실제 로그인 폼 제출
+        console.log('[STO] 인증 성공! 로그인 폼 제출 중...')
+
+        // 로그인 폼 제출 (form-login submit)
+        // 실제 브라우저에서 전송하는 필드: emgEmail, userId, password, saveId
+        const loginFormData = new URLSearchParams()
+        loginFormData.append('emgEmail', pendingCredentials.userEmail)
+        loginFormData.append('userId', pendingCredentials.empId)
+        loginFormData.append('password', pendingCredentials.password)
+        loginFormData.append('saveId', 'Y')
+
+        let loginResponse = await fetch(`${STO_CONFIG.baseUrl}${STO_CONFIG.loginActionPath}`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'Cookie': cookies,
+            'Referer': `${STO_CONFIG.baseUrl}${STO_CONFIG.loginPath}`,
+          },
+          body: loginFormData.toString(),
+          redirect: 'manual',
+        })
+
+        // 로그인 응답에서 쿠키 업데이트
+        let loginCookies = loginResponse.headers.get('set-cookie')
+        console.log('[STO] loginAction set-cookie:', loginCookies)
+        if (loginCookies) {
+          const sessionMatch = loginCookies.match(/JSESSIONID=([^;]+)/)
+          if (sessionMatch) {
+            cookies = `JSESSIONID=${sessionMatch[1]}`
+            console.log('[STO] loginAction 후 쿠키 업데이트:', cookies)
+          }
+        }
+
+        let loginLocation = loginResponse.headers.get('location') || ''
+        console.log('[STO] loginAction 응답:', loginResponse.status, loginLocation)
+
+        // 302 리다이렉트면 따라가서 새 세션 쿠키 획득
+        if (loginResponse.status === 302 && loginLocation) {
+          const redirectUrl = loginLocation.startsWith('http')
+            ? loginLocation
+            : `${STO_CONFIG.baseUrl}${loginLocation}`
+          console.log('[STO] 리다이렉트 따라가기:', redirectUrl)
+
+          loginResponse = await fetch(redirectUrl, {
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Cookie': cookies,
+            },
+            redirect: 'manual',
+          })
+
+          loginCookies = loginResponse.headers.get('set-cookie')
+          console.log('[STO] 리다이렉트 후 set-cookie:', loginCookies)
+          if (loginCookies) {
+            const sessionMatch = loginCookies.match(/JSESSIONID=([^;]+)/)
+            if (sessionMatch) {
+              cookies = `JSESSIONID=${sessionMatch[1]}`
+              console.log('[STO] 리다이렉트 후 쿠키 업데이트:', cookies)
+            }
+          }
+
+          loginLocation = loginResponse.headers.get('location') || ''
+          console.log('[STO] 리다이렉트 후 응답:', loginResponse.status, loginLocation)
+
+          // 두 번째 리다이렉트가 있으면 따라가기 (로그인 → 메인페이지 등)
+          if (loginResponse.status === 302 && loginLocation && !loginLocation.includes('logout')) {
+            const redirectUrl2 = loginLocation.startsWith('http')
+              ? loginLocation
+              : `${STO_CONFIG.baseUrl}${loginLocation}`
+            console.log('[STO] 두 번째 리다이렉트:', redirectUrl2)
+
+            loginResponse = await fetch(redirectUrl2, {
+              method: 'GET',
+              headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                'Cookie': cookies,
+              },
+              redirect: 'manual',
+            })
+
+            const loginCookies2 = loginResponse.headers.get('set-cookie')
+            if (loginCookies2) {
+              const sessionMatch = loginCookies2.match(/JSESSIONID=([^;]+)/)
+              if (sessionMatch) {
+                cookies = `JSESSIONID=${sessionMatch[1]}`
+                console.log('[STO] 두 번째 리다이렉트 후 쿠키:', cookies)
+              }
+            }
+          }
+        }
+
+        // 세션 생성
+        const session: STOSession = {
+          cookies,
+          expiresAt: new Date(Date.now() + STO_CONFIG.sessionExpiryMinutes * 60 * 1000),
+          isLoggedIn: true,
+        }
+        currentSession = session
+        pendingCredentials = null
+
+        console.log('[STO] 로그인 완료! 최종 쿠키:', cookies)
+        return { success: true, session }
+      } else {
+        const errorMsg = data.message || data.msg || '인증코드가 올바르지 않습니다.'
+        console.log('[STO] 인증 실패:', errorMsg, 'data:', data)
+        return { success: false, error: errorMsg }
+      }
+    } catch {
+      if (responseText.includes('success')) {
+        // 세션 생성 (fallback)
+        const session: STOSession = {
+          cookies,
+          expiresAt: new Date(Date.now() + STO_CONFIG.sessionExpiryMinutes * 60 * 1000),
+          isLoggedIn: true,
+        }
+        currentSession = session
+        pendingCredentials = null
+        return { success: true, session }
+      }
+      return { success: false, error: '인증코드 확인에 실패했습니다.' }
+    }
+  } catch (error) {
+    console.error('[STO] 인증코드 확인 오류:', error)
+    return { success: false, error: `오류 발생: ${error}` }
+  }
+}
+
+/**
+ * STO 시스템 로그인 (통합 함수 - 이전 호환성 유지)
+ */
+export async function loginToSTO(
+  credentials: STOCredentials,
+  verificationCode?: string
+): Promise<{ success: boolean; needsVerification?: boolean; session?: STOSession; error?: string }> {
+  // 인증코드가 없으면 1단계: 인증코드 요청
+  if (!verificationCode) {
+    const result = await requestVerificationCode(credentials)
+    if (result.success) {
+      return { success: false, needsVerification: true }
+    } else {
+      return { success: false, error: result.error }
+    }
+  }
+
+  // 인증코드가 있으면 2단계: 인증 및 로그인
+  const result = await verifyCodeAndLogin(verificationCode)
+  return result
 }
 
 /**
@@ -139,15 +377,27 @@ export async function fetchBookingListPage(page: number = 1): Promise<{
         'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
         'Cookie': currentSession!.cookies,
       },
+      redirect: 'manual',
     })
 
-    // 세션 만료 체크 (로그인 페이지로 리다이렉트)
-    if (response.url.includes('login') || response.url.includes('logout')) {
+    // 302 리다이렉트면 세션 만료
+    if (response.status === 302) {
+      const location = response.headers.get('location') || ''
+      console.log('[STO] 목록 조회 리다이렉트:', location)
+      if (location.includes('login') || location.includes('logout')) {
+        currentSession!.isLoggedIn = false
+        return { html: '', success: false, error: '세션이 만료되었습니다.' }
+      }
+    }
+
+    const html = await response.text()
+
+    // HTML 내용으로 로그인 페이지 여부 확인
+    if (html.includes('자동로그아웃') || html.includes('<title>로그인</title>') || html.includes('loginout/login')) {
       currentSession!.isLoggedIn = false
       return { html: '', success: false, error: '세션이 만료되었습니다.' }
     }
 
-    const html = await response.text()
     return { html, success: true }
   } catch (error) {
     console.error('[STO] 목록 조회 오류:', error)

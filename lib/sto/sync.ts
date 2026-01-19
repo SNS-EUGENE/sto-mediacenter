@@ -16,21 +16,6 @@ interface BookingRow {
   status: string
 }
 
-interface BookingInsertData {
-  studio_id: number
-  rental_date: string
-  time_slots: number[]
-  applicant_name: string
-  organization: string | null
-  phone: string
-  event_name: string | null
-  purpose: string | null
-  participants_count: number
-  payment_confirmed: boolean
-  status: string
-  sto_reqst_sn: string
-  created_at: string
-}
 
 // 이전 동기화된 예약 상태 저장 (메모리)
 // 키: reqstSn, 값: status
@@ -44,8 +29,13 @@ let lastSyncTime: Date | null = null
  * STO 예약 데이터 동기화
  * - 새 예약 감지
  * - 상태 변경 감지 (입금대기 → 대관확정 등)
+ * @param maxRecords 최대 가져올 레코드 수 (기본 80개)
+ * @param fetchDetail 상세 페이지에서 전체 정보 가져오기 (기본 true)
  */
-export async function syncSTOBookings(): Promise<STOSyncResult> {
+export async function syncSTOBookings(
+  maxRecords: number = 5,
+  fetchDetail: boolean = true
+): Promise<STOSyncResult> {
   const result: STOSyncResult = {
     success: false,
     totalCount: 0,
@@ -68,8 +58,12 @@ export async function syncSTOBookings(): Promise<STOSyncResult> {
   isSyncing = true
 
   try {
-    // STO에서 전체 예약 목록 가져오기
-    const { bookings, totalCount, success, error } = await fetchAllBookings(50)
+    // 최대 페이지 수 계산 (페이지당 10개)
+    const maxPages = Math.ceil(maxRecords / 10)
+    console.log(`[STO Sync] 최대 ${maxRecords}개 (${maxPages}페이지) 동기화 시작, 상세정보: ${fetchDetail ? 'O' : 'X'}`)
+
+    // STO에서 예약 목록 가져오기 (제한된 페이지 수)
+    const { bookings, totalCount, success, error } = await fetchAllBookings(maxPages)
 
     if (!success) {
       result.errors.push(error || '예약 목록 조회 실패')
@@ -78,10 +72,14 @@ export async function syncSTOBookings(): Promise<STOSyncResult> {
 
     result.totalCount = totalCount
 
+    // maxRecords로 제한
+    const limitedBookings = bookings.slice(0, maxRecords)
+    console.log(`[STO Sync] 총 ${totalCount}건 중 ${limitedBookings.length}건 처리`)
+
     // 이전에 동기화한 reqstSn 목록 가져오기 (DB에서)
     const existingReqstSns = await getExistingStoBookingIds()
 
-    for (const booking of bookings) {
+    for (const booking of limitedBookings) {
       // 새 예약 감지
       if (!existingReqstSns.has(booking.reqstSn)) {
         result.newBookings.push(booking)
@@ -105,9 +103,10 @@ export async function syncSTOBookings(): Promise<STOSyncResult> {
       previousStatusMap.set(booking.reqstSn, booking.status)
     }
 
-    // 새 예약을 DB에 저장
+    // 새 예약을 DB에 저장 (상세 정보 포함)
     if (result.newBookings.length > 0) {
-      const saveErrors = await saveNewBookings(result.newBookings)
+      console.log(`[STO Sync] 신규 ${result.newBookings.length}건 저장 시작 (상세정보: ${fetchDetail ? 'O' : 'X'})`)
+      const saveErrors = await saveNewBookings(result.newBookings, fetchDetail)
       result.errors.push(...saveErrors)
     }
 
@@ -158,42 +157,78 @@ async function getExistingStoBookingIds(): Promise<Set<string>> {
 }
 
 /**
- * 새 예약을 DB에 저장
+ * 새 예약을 DB에 저장 (상세 정보 포함)
  */
-async function saveNewBookings(bookings: STOBookingListItem[]): Promise<string[]> {
+async function saveNewBookings(bookings: STOBookingListItem[], fetchDetail: boolean = false): Promise<string[]> {
   const errors: string[] = []
 
   for (const booking of bookings) {
     try {
+      // 상세 정보 가져오기 (옵션)
+      let detail: import('./types').STOBookingDetail | null = null
+
+      if (fetchDetail) {
+        const { fetchBookingDetail } = await import('./client')
+        const detailResult = await fetchBookingDetail(booking.reqstSn, booking)
+        if (detailResult.success && detailResult.detail) {
+          detail = detailResult.detail
+          console.log(`[STO Sync] 상세 정보 가져옴: ${booking.reqstSn} - ${detail.fullName || booking.applicantName}`)
+        }
+        // 요청 간 딜레이 (서버 부하 방지)
+        await new Promise(resolve => setTimeout(resolve, 300))
+      }
+
       // 시설 ID 매핑
-      const studioId = FACILITY_MAP[booking.facilityName] || 1
+      const facilityName = detail?.facilityName || booking.facilityName
+      const studioId = FACILITY_MAP[facilityName] || 1
 
       // 시간 슬롯 파싱 (09:00~10:00 → 9)
-      const timeSlots = booking.timeSlots.map(slot => {
+      const timeSlotsSrc = detail?.timeSlots || booking.timeSlots
+      const timeSlots = timeSlotsSrc.map(slot => {
         const match = slot.match(/(\d{1,2}):/)
         return match ? parseInt(match[1], 10) : 9
       })
 
       // 상태 매핑
       let status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' = 'PENDING'
-      if (booking.status === 'CONFIRMED') status = 'CONFIRMED'
-      else if (booking.status === 'CANCELLED') status = 'CANCELLED'
+      const bookingStatus = detail?.status || booking.status
+      if (bookingStatus === 'CONFIRMED') status = 'CONFIRMED'
+      else if (bookingStatus === 'CANCELLED') status = 'CANCELLED'
 
-      const insertData: BookingInsertData = {
+      // 전체 필드 저장
+      const purposeValue = detail?.purpose || null
+      const insertData: Record<string, unknown> = {
         studio_id: studioId,
-        rental_date: booking.rentalDate,
+        rental_date: detail?.rentalDate || booking.rentalDate,
         time_slots: timeSlots,
-        applicant_name: booking.applicantName,
-        organization: booking.organization || null,
-        phone: booking.phone,
-        event_name: null,
-        purpose: null,
-        participants_count: booking.participantsCount,
-        payment_confirmed: booking.status === 'CONFIRMED',
+        applicant_name: detail?.fullName || booking.applicantName,
+        organization: detail?.organization || booking.organization || null,
+        phone: detail?.fullPhone || booking.phone,
+        email: detail?.email || null,
+        event_name: purposeValue,  // 행사명 = 사용목적
+        purpose: purposeValue,
+        participants_count: detail?.participantsCount || booking.participantsCount,
+        payment_confirmed: bookingStatus === 'CONFIRMED',
         status,
+        fee: detail?.rentalFee !== undefined ? detail.rentalFee : null,  // 0도 유효한 값
         sto_reqst_sn: booking.reqstSn,
         created_at: booking.createdAt ? `${booking.createdAt}T00:00:00` : new Date().toISOString(),
+        // 추가 상세 필드들
+        special_note: detail?.specialNote || booking.specialNote || null,
+        user_type: detail?.userType || null,
+        discount_rate: detail?.discountRate !== undefined ? detail.discountRate : 0,  // 0도 유효
+        company_phone: detail?.companyPhone || null,
+        business_license: detail?.businessLicense || null,
+        receipt_type: detail?.receiptType || null,
+        business_number: detail?.businessNumber || null,
+        has_no_show: detail?.hasNoShow || false,
+        no_show_memo: detail?.noShowMemo || null,
+        studio_usage_method: detail?.studioUsageMethod || null,
+        file_delivery_method: detail?.fileDeliveryMethod || null,
+        pre_meeting_contact: detail?.preMeetingContact || null,
+        other_inquiry: detail?.otherInquiry || null,
       }
+
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const { error } = await supabase.from('bookings').insert(insertData as any)
 

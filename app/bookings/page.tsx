@@ -326,34 +326,122 @@ export default function BookingsPage() {
                     {/* Expanded Detail */}
                     {expandedId === booking.id && (
                       <div className="px-4 pb-4 bg-white/[0.02] border-t border-white/5">
+                        {/* 기본 정보 */}
                         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4">
                           <div>
                             <p className="text-xs text-gray-500 mb-1">소속</p>
                             <p className="text-sm text-white">{booking.organization || '-'}</p>
                           </div>
                           <div>
+                            <p className="text-xs text-gray-500 mb-1">연락처</p>
+                            <p className="text-sm text-white">{booking.phone || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">이메일</p>
+                            <p className="text-sm text-white">{booking.email || '-'}</p>
+                          </div>
+                          <div>
                             <p className="text-xs text-gray-500 mb-1">인원</p>
                             <p className="text-sm text-white">{booking.participants_count}명</p>
                           </div>
+                          <div className="col-span-2 lg:col-span-4">
+                            <p className="text-xs text-gray-500 mb-1">행사명/사용목적</p>
+                            <p className="text-sm text-white">{booking.event_name || booking.purpose || '-'}</p>
+                          </div>
+                        </div>
+
+                        {/* 대관료 정보 */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4 border-t border-white/5">
                           <div>
                             <p className="text-xs text-gray-500 mb-1">대관료</p>
-                            <p className="text-sm text-white">{(booking.fee || 0).toLocaleString()}원</p>
+                            <p className="text-sm text-white">{booking.fee !== null ? `${booking.fee.toLocaleString()}원` : '-'}</p>
                           </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">할인율</p>
+                            <p className="text-sm text-white">{booking.discount_rate !== null ? `${booking.discount_rate}%` : '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">신청 유형</p>
+                            <p className="text-sm text-white">{booking.user_type || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">증빙 유형</p>
+                            <p className="text-sm text-white">{booking.receipt_type || '-'}</p>
+                          </div>
+                        </div>
+
+                        {/* 스튜디오 지원 정보 (STO 연동 데이터가 있는 경우) */}
+                        {booking.sto_reqst_sn && (
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4 border-t border-white/5">
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">스튜디오 사용 방식</p>
+                              <p className="text-sm text-white">{booking.studio_usage_method || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">파일 수령 방법</p>
+                              <p className="text-sm text-white">{booking.file_delivery_method || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">사전 미팅 연락처</p>
+                              <p className="text-sm text-white">{booking.pre_meeting_contact || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">STO 예약번호</p>
+                              <p className="text-sm text-purple-400">{booking.sto_reqst_sn}</p>
+                            </div>
+                            {booking.other_inquiry && (
+                              <div className="col-span-2 lg:col-span-4">
+                                <p className="text-xs text-gray-500 mb-1">기타 문의사항</p>
+                                <p className="text-sm text-white">{booking.other_inquiry}</p>
+                              </div>
+                            )}
+                            {booking.special_note && (
+                              <div className="col-span-2 lg:col-span-4">
+                                <p className="text-xs text-gray-500 mb-1">특이사항</p>
+                                <p className="text-sm text-yellow-400">{booking.special_note}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* No-Show 및 기타 정보 */}
+                        {(booking.has_no_show || booking.cancelled_at) && (
+                          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4 border-t border-white/5">
+                            {booking.has_no_show && (
+                              <div className="col-span-2 lg:col-span-4">
+                                <p className="text-xs text-gray-500 mb-1">No-Show</p>
+                                <p className="text-sm text-red-400">예 {booking.no_show_memo && `- ${booking.no_show_memo}`}</p>
+                              </div>
+                            )}
+                            {booking.cancelled_at && (
+                              <div className="col-span-2 lg:col-span-4">
+                                <p className="text-xs text-gray-500 mb-1">취소일시</p>
+                                <p className="text-sm text-red-400">{booking.cancelled_at}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 등록 정보 */}
+                        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 py-4 border-t border-white/5">
                           <div>
                             <p className="text-xs text-gray-500 mb-1">등록일</p>
                             <p className="text-sm text-white">{booking.created_at?.split('T')[0] || '-'}</p>
                           </div>
-                          <div className="col-span-2 lg:col-span-4">
-                            <p className="text-xs text-gray-500 mb-1">행사명</p>
-                            <p className="text-sm text-white">{booking.event_name || '-'}</p>
-                          </div>
-                          {booking.cancelled_at && (
-                            <div className="col-span-2 lg:col-span-4">
-                              <p className="text-xs text-gray-500 mb-1">취소일시</p>
-                              <p className="text-sm text-red-400">{booking.cancelled_at}</p>
+                          {booking.company_phone && (
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">회사 전화</p>
+                              <p className="text-sm text-white">{booking.company_phone}</p>
+                            </div>
+                          )}
+                          {booking.business_number && (
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">사업자번호</p>
+                              <p className="text-sm text-white">{booking.business_number}</p>
                             </div>
                           )}
                         </div>
+
                         <div className="flex gap-2 pt-3 border-t border-white/5">
                           <button
                             onClick={(e) => {
@@ -417,6 +505,7 @@ export default function BookingsPage() {
                     {/* Mobile Expanded Detail */}
                     {expandedId === booking.id && (
                       <div className="px-4 pb-4 bg-white/[0.02] border-t border-white/5">
+                        {/* 기본 정보 */}
                         <div className="grid grid-cols-2 gap-3 py-3">
                           <div>
                             <p className="text-xs text-gray-500 mb-1">소속</p>
@@ -427,14 +516,80 @@ export default function BookingsPage() {
                             <p className="text-sm text-white">{booking.participants_count}명</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500 mb-1">대관료</p>
-                            <p className="text-sm text-white">{(booking.fee || 0).toLocaleString()}원</p>
+                            <p className="text-xs text-gray-500 mb-1">연락처</p>
+                            <p className="text-sm text-white">{booking.phone || '-'}</p>
                           </div>
                           <div>
-                            <p className="text-xs text-gray-500 mb-1">등록일</p>
-                            <p className="text-sm text-white">{booking.created_at?.split('T')[0] || '-'}</p>
+                            <p className="text-xs text-gray-500 mb-1">이메일</p>
+                            <p className="text-sm text-white truncate">{booking.email || '-'}</p>
+                          </div>
+                          <div className="col-span-2">
+                            <p className="text-xs text-gray-500 mb-1">행사명/사용목적</p>
+                            <p className="text-sm text-white">{booking.event_name || booking.purpose || '-'}</p>
                           </div>
                         </div>
+
+                        {/* 대관료 정보 */}
+                        <div className="grid grid-cols-2 gap-3 py-3 border-t border-white/5">
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">대관료</p>
+                            <p className="text-sm text-white">{booking.fee !== null ? `${booking.fee.toLocaleString()}원` : '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">할인율</p>
+                            <p className="text-sm text-white">{booking.discount_rate !== null ? `${booking.discount_rate}%` : '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">신청 유형</p>
+                            <p className="text-sm text-white truncate">{booking.user_type || '-'}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs text-gray-500 mb-1">증빙 유형</p>
+                            <p className="text-sm text-white">{booking.receipt_type || '-'}</p>
+                          </div>
+                        </div>
+
+                        {/* STO 연동 정보 */}
+                        {booking.sto_reqst_sn && (
+                          <div className="grid grid-cols-2 gap-3 py-3 border-t border-white/5">
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">사용 방식</p>
+                              <p className="text-sm text-white">{booking.studio_usage_method || '-'}</p>
+                            </div>
+                            <div>
+                              <p className="text-xs text-gray-500 mb-1">파일 수령</p>
+                              <p className="text-sm text-white">{booking.file_delivery_method || '-'}</p>
+                            </div>
+                            <div className="col-span-2">
+                              <p className="text-xs text-gray-500 mb-1">STO 예약번호</p>
+                              <p className="text-sm text-purple-400">{booking.sto_reqst_sn}</p>
+                            </div>
+                            {booking.special_note && (
+                              <div className="col-span-2">
+                                <p className="text-xs text-gray-500 mb-1">특이사항</p>
+                                <p className="text-sm text-yellow-400">{booking.special_note}</p>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {/* No-Show / 취소 */}
+                        {(booking.has_no_show || booking.cancelled_at) && (
+                          <div className="py-3 border-t border-white/5">
+                            {booking.has_no_show && (
+                              <p className="text-sm text-red-400">No-Show {booking.no_show_memo && `- ${booking.no_show_memo}`}</p>
+                            )}
+                            {booking.cancelled_at && (
+                              <p className="text-sm text-red-400">취소: {booking.cancelled_at}</p>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 등록일 */}
+                        <div className="py-3 border-t border-white/5">
+                          <p className="text-xs text-gray-500">등록일: {booking.created_at?.split('T')[0] || '-'}</p>
+                        </div>
+
                         <div className="flex gap-2 pt-3 border-t border-white/5">
                           <button
                             onClick={(e) => {

@@ -23,19 +23,35 @@ export default function BookingModal({
 }: BookingModalProps) {
   const isEditMode = !!booking
 
-  // Form state
+  // Form state - 기본 정보
   const [studioId, setStudioId] = useState<number>(1)
   const [rentalDate, setRentalDate] = useState('')
   const [timeSlots, setTimeSlots] = useState<number[]>([])
   const [applicantName, setApplicantName] = useState('')
   const [organization, setOrganization] = useState('')
   const [phone, setPhone] = useState('')
+  const [email, setEmail] = useState('')
   const [eventName, setEventName] = useState('')
   const [purpose, setPurpose] = useState('')
   const [participantsCount, setParticipantsCount] = useState(1)
   const [fee, setFee] = useState(0)
   const [status, setStatus] = useState<BookingStatus>('CONFIRMED')
   const [paymentConfirmed, setPaymentConfirmed] = useState(false)
+
+  // Form state - STO 상세 정보
+  const [discountRate, setDiscountRate] = useState(0)
+  const [userType, setUserType] = useState('')
+  const [receiptType, setReceiptType] = useState('')
+  const [companyPhone, setCompanyPhone] = useState('')
+  const [businessNumber, setBusinessNumber] = useState('')
+  const [specialNote, setSpecialNote] = useState('')
+  const [studioUsageMethod, setStudioUsageMethod] = useState('')
+  const [fileDeliveryMethod, setFileDeliveryMethod] = useState('')
+  const [preMeetingContact, setPreMeetingContact] = useState('')
+  const [otherInquiry, setOtherInquiry] = useState('')
+
+  // 상세 정보 섹션 토글
+  const [showDetailSection, setShowDetailSection] = useState(false)
 
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -51,12 +67,26 @@ export default function BookingModal({
         setApplicantName(booking.applicant_name)
         setOrganization(booking.organization || '')
         setPhone(booking.phone)
+        setEmail(booking.email || '')
         setEventName(booking.event_name || '')
         setPurpose(booking.purpose || '')
         setParticipantsCount(booking.participants_count)
         setFee(booking.fee || 0)
         setStatus(booking.status)
         setPaymentConfirmed(booking.payment_confirmed)
+        // STO 상세 정보
+        setDiscountRate(booking.discount_rate || 0)
+        setUserType(booking.user_type || '')
+        setReceiptType(booking.receipt_type || '')
+        setCompanyPhone(booking.company_phone || '')
+        setBusinessNumber(booking.business_number || '')
+        setSpecialNote(booking.special_note || '')
+        setStudioUsageMethod(booking.studio_usage_method || '')
+        setFileDeliveryMethod(booking.file_delivery_method || '')
+        setPreMeetingContact(booking.pre_meeting_contact || '')
+        setOtherInquiry(booking.other_inquiry || '')
+        // STO 데이터가 있으면 상세 섹션 열기
+        setShowDetailSection(!!booking.sto_reqst_sn || !!booking.user_type || !!booking.special_note)
       } else {
         // 신규 모드: 초기화
         setStudioId(1)
@@ -65,12 +95,25 @@ export default function BookingModal({
         setApplicantName('')
         setOrganization('')
         setPhone('')
+        setEmail('')
         setEventName('')
         setPurpose('')
         setParticipantsCount(1)
         setFee(0)
         setStatus('CONFIRMED')
         setPaymentConfirmed(false)
+        // STO 상세 정보 초기화
+        setDiscountRate(0)
+        setUserType('')
+        setReceiptType('')
+        setCompanyPhone('')
+        setBusinessNumber('')
+        setSpecialNote('')
+        setStudioUsageMethod('')
+        setFileDeliveryMethod('')
+        setPreMeetingContact('')
+        setOtherInquiry('')
+        setShowDetailSection(false)
       }
       setError(null)
     }
@@ -138,6 +181,7 @@ export default function BookingModal({
         applicant_name: applicantName.trim(),
         organization: organization.trim() || null,
         phone: phone.trim(),
+        email: email.trim() || null,
         event_name: eventName.trim() || null,
         purpose: purpose.trim() || null,
         participants_count: participantsCount,
@@ -145,6 +189,17 @@ export default function BookingModal({
         status,
         payment_confirmed: paymentConfirmed,
         cancelled_at: null,
+        // STO 상세 정보
+        discount_rate: discountRate || null,
+        user_type: userType.trim() || null,
+        receipt_type: receiptType.trim() || null,
+        company_phone: companyPhone.trim() || null,
+        business_number: businessNumber.trim() || null,
+        special_note: specialNote.trim() || null,
+        studio_usage_method: studioUsageMethod.trim() || null,
+        file_delivery_method: fileDeliveryMethod.trim() || null,
+        pre_meeting_contact: preMeetingContact.trim() || null,
+        other_inquiry: otherInquiry.trim() || null,
       }
       await onSubmit(data)
       onClose()
@@ -276,19 +331,31 @@ export default function BookingModal({
               </div>
             </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">소속</label>
-              <input
-                type="text"
-                value={organization}
-                onChange={(e) => setOrganization(e.target.value)}
-                placeholder="회사명 또는 단체명"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
-              />
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">소속</label>
+                <input
+                  type="text"
+                  value={organization}
+                  onChange={(e) => setOrganization(e.target.value)}
+                  placeholder="회사명 또는 단체명"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-300 mb-2">이메일</label>
+                <input
+                  type="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="email@example.com"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                />
+              </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-300 mb-2">행사명</label>
+              <label className="block text-sm font-medium text-gray-300 mb-2">행사명/사용목적</label>
               <input
                 type="text"
                 value={eventName}
@@ -369,6 +436,158 @@ export default function BookingModal({
                 결제 확인됨
               </label>
             </div>
+
+            {/* 상세 정보 토글 */}
+            <div className="border-t border-white/10 pt-4">
+              <button
+                type="button"
+                onClick={() => setShowDetailSection(!showDetailSection)}
+                className="flex items-center gap-2 text-sm text-purple-400 hover:text-purple-300 transition-colors"
+              >
+                <svg
+                  className={cn('w-4 h-4 transition-transform', showDetailSection && 'rotate-180')}
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+                상세 정보 {showDetailSection ? '접기' : '펼치기'}
+              </button>
+            </div>
+
+            {/* 상세 정보 섹션 */}
+            {showDetailSection && (
+              <div className="space-y-4 p-4 bg-white/[0.02] border border-white/10 rounded-xl">
+                <p className="text-xs text-gray-500 mb-3">대관료 및 스튜디오 관련 상세 정보</p>
+
+                {/* 대관료 정보 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">할인율 (%)</label>
+                    <input
+                      type="number"
+                      min={0}
+                      max={100}
+                      value={discountRate}
+                      onChange={(e) => setDiscountRate(Number(e.target.value) || 0)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">신청 유형</label>
+                    <input
+                      type="text"
+                      value={userType}
+                      onChange={(e) => setUserType(e.target.value)}
+                      placeholder="서울시 입주사 등"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">증빙 유형</label>
+                    <select
+                      value={receiptType}
+                      onChange={(e) => setReceiptType(e.target.value)}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+                    >
+                      <option value="">선택</option>
+                      <option value="미대상">미대상</option>
+                      <option value="세금계산서">세금계산서</option>
+                      <option value="현금영수증">현금영수증</option>
+                    </select>
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">사업자번호</label>
+                    <input
+                      type="text"
+                      value={businessNumber}
+                      onChange={(e) => setBusinessNumber(e.target.value)}
+                      placeholder="000-00-00000"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-gray-400 mb-1.5">회사 전화번호</label>
+                  <input
+                    type="tel"
+                    value={companyPhone}
+                    onChange={(e) => setCompanyPhone(e.target.value)}
+                    placeholder="02-0000-0000"
+                    className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                  />
+                </div>
+
+                {/* 스튜디오 이용 정보 */}
+                <div className="pt-3 border-t border-white/5">
+                  <p className="text-xs text-gray-500 mb-3">스튜디오 이용 정보</p>
+
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1.5">사용 방식</label>
+                      <input
+                        type="text"
+                        value={studioUsageMethod}
+                        onChange={(e) => setStudioUsageMethod(e.target.value)}
+                        placeholder="촬영, 녹화, 편집 등"
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-medium text-gray-400 mb-1.5">파일 수령 방법</label>
+                      <input
+                        type="text"
+                        value={fileDeliveryMethod}
+                        onChange={(e) => setFileDeliveryMethod(e.target.value)}
+                        placeholder="USB, 클라우드 등"
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">사전 미팅 연락처</label>
+                    <input
+                      type="text"
+                      value={preMeetingContact}
+                      onChange={(e) => setPreMeetingContact(e.target.value)}
+                      placeholder="연락처 또는 이메일"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                    />
+                  </div>
+                </div>
+
+                {/* 특이사항 및 기타 문의 */}
+                <div className="pt-3 border-t border-white/5">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">특이사항</label>
+                    <textarea
+                      value={specialNote}
+                      onChange={(e) => setSpecialNote(e.target.value)}
+                      placeholder="특이사항이 있으면 입력해주세요"
+                      rows={2}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
+                    />
+                  </div>
+
+                  <div className="mt-3">
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">기타 문의사항</label>
+                    <textarea
+                      value={otherInquiry}
+                      onChange={(e) => setOtherInquiry(e.target.value)}
+                      placeholder="기타 문의사항"
+                      rows={2}
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors resize-none"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
 
             {/* Error */}
             {error && (

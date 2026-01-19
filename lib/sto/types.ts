@@ -41,14 +41,25 @@ export interface STOBookingDetail extends STOBookingListItem {
   purpose: string           // 사용 목적
 
   // 대관료 정보
-  userType: string          // 사용자 신청 유형
+  userType: string          // 사용자 신청 유형 (서울시 및 서울관광플라자 입주사 등)
   discountRate: number      // 대관료 할인율 (%)
   rentalFee: number         // 대관료 (원)
   bankAccount: string       // 입금 계좌
 
-  // 기타
+  // 증빙 발행
+  businessLicense: string   // 사업자등록증 파일명
+  receiptType: string       // 증빙 발행 유형 (미대상, 세금계산서 등)
+  businessNumber: string    // 사업자번호
+
+  // No-Show
   hasNoShow: boolean        // No-Show 여부
   noShowMemo: string        // No-Show 메모
+
+  // 스튜디오 오퍼레이팅 지원
+  studioUsageMethod: string     // 사용 방식
+  fileDeliveryMethod: string    // 파일 원본 수령 방법
+  preMeetingContact: string     // 사전 미팅 연락처
+  otherInquiry: string          // 기타 문의사항
 }
 
 // 예약 상태
@@ -92,10 +103,14 @@ export const STO_CONFIG = {
 }
 
 // 시설 ID 매핑 (STO → 내부)
+// STO: 대형 스튜디오, 1인 스튜디오 #1, 1인 스튜디오 #2
+// 내부: 메인 스튜디오(1), 1인 스튜디오 A(2), 1인 스튜디오 B(3)
 export const FACILITY_MAP: Record<string, number> = {
   '대형 스튜디오': 1,         // 메인 스튜디오
   '1인 스튜디오 #1': 2,       // 1인 스튜디오 A
   '1인 스튜디오 #2': 3,       // 1인 스튜디오 B
+  '1인 스튜디오 A': 2,        // 호환성
+  '1인 스튜디오 B': 3,        // 호환성
 }
 
 // 상태 텍스트 매핑
