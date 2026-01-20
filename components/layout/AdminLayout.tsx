@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Sidebar from './Sidebar'
 import MobileNav from './MobileNav'
 import { cn } from '@/lib/utils'
@@ -17,6 +17,33 @@ export default function AdminLayout({ children }: AdminLayoutProps) {
       setMounted(true)
     })
   }, [])
+
+  // STO 세션 keep-alive (전역)
+  const keepAlive = useCallback(async () => {
+    try {
+      const response = await fetch('/api/sto/keepalive', { method: 'POST' })
+      const data = await response.json()
+
+      if (data.success) {
+        console.log('[Global Keep-alive] 세션 유지:', new Date().toLocaleTimeString())
+      } else if (data.needsLogin) {
+        console.log('[Global Keep-alive] 로그인 필요')
+      }
+    } catch {
+      // 실패해도 무시 (네트워크 문제 등)
+    }
+  }, [])
+
+  // 5분마다 keep-alive 실행
+  useEffect(() => {
+    // 페이지 로드 시 즉시 실행
+    keepAlive()
+
+    // 5분마다 실행
+    const interval = setInterval(keepAlive, 5 * 60 * 1000)
+
+    return () => clearInterval(interval)
+  }, [keepAlive])
 
   return (
     <div className="min-h-screen text-white">

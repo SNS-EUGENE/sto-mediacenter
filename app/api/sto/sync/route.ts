@@ -15,14 +15,14 @@ export async function POST(request: NextRequest) {
     }
 
     // 요청 body에서 옵션 추출
-    let maxRecords = 5  // 테스트용 5개
+    let maxRecords = 10  // 기본: 1페이지 (10건)
     let fetchDetail = true
     try {
       const body = await request.json()
       if (body.maxRecords !== undefined) maxRecords = body.maxRecords
       if (body.fetchDetail !== undefined) fetchDetail = body.fetchDetail
     } catch {
-      // body가 없는 경우 기본값 사용
+      // body가 없는 경우 기본값 사용 (10건)
     }
 
     // 동기화 실행

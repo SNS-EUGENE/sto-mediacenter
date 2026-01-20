@@ -9,9 +9,11 @@ import {
   STO_CONFIG,
 } from './types'
 import { parseBookingList, parseBookingDetail, parseTotalCount, parseTotalPages } from './parser'
+import { loadSessionFromDB, saveSessionToDB, clearSessionFromDB } from './session-store'
 
-// 세션 저장소 (메모리 기반)
+// 세션 저장소 (메모리 기반 + DB 영속화)
 let currentSession: STOSession | null = null
+let sessionLoadedFromDB = false
 
 // 임시 저장소 (인증 과정에서 사용)
 let pendingCredentials: { empId: string; password: string; userEmail: string; cookies: string } | null = null
@@ -277,6 +279,9 @@ export async function verifyCodeAndLogin(
         currentSession = session
         pendingCredentials = null
 
+        // DB에 세션 저장 (영속화)
+        await saveSessionToDB(session)
+
         console.log('[STO] 로그인 완료! 최종 쿠키:', cookies)
         return { success: true, session }
       } else {
@@ -294,6 +299,8 @@ export async function verifyCodeAndLogin(
         }
         currentSession = session
         pendingCredentials = null
+        // DB에 세션 저장 (영속화)
+        await saveSessionToDB(session)
         return { success: true, session }
       }
       return { success: false, error: '인증코드 확인에 실패했습니다.' }
@@ -327,12 +334,77 @@ export async function loginToSTO(
 }
 
 /**
- * 세션 유효성 검사
+ * STO 자동 로그인 (Gmail에서 인증 코드 자동 추출)
+ * 1. 인증코드 요청
+ * 2. Gmail에서 인증코드 대기 및 추출
+ * 3. 자동 로그인 완료
+ */
+export async function autoLoginToSTO(
+  credentials: STOCredentials
+): Promise<{ success: boolean; session?: STOSession; error?: string }> {
+  try {
+    console.log('[STO Auto Login] 자동 로그인 시작')
+
+    // 1단계: 인증코드 요청
+    const requestResult = await requestVerificationCode(credentials)
+    if (!requestResult.success) {
+      return { success: false, error: requestResult.error }
+    }
+
+    console.log('[STO Auto Login] 인증코드 발송 완료, 5초 대기 후 Gmail 확인...')
+
+    // 이메일 도착 대기 (5초)
+    await new Promise(resolve => setTimeout(resolve, 5000))
+
+    // 2단계: Gmail에서 인증 코드 대기 (최대 60초, 5초마다 체크)
+    const { waitForSTOVerificationCode } = await import('@/lib/google/gmail')
+    const codeResult = await waitForSTOVerificationCode(60000, 5000)
+
+    if (!codeResult.success || !codeResult.code) {
+      return { success: false, error: codeResult.error || '인증 코드를 받지 못했습니다' }
+    }
+
+    console.log('[STO Auto Login] Gmail에서 인증 코드 추출:', codeResult.code)
+
+    // 3단계: 인증 코드로 로그인 완료
+    const loginResult = await verifyCodeAndLogin(codeResult.code)
+    return loginResult
+
+  } catch (error) {
+    console.error('[STO Auto Login] 오류:', error)
+    return { success: false, error: `자동 로그인 실패: ${error}` }
+  }
+}
+
+/**
+ * 세션 유효성 검사 (동기 버전 - 메모리만 체크)
  */
 export function isSessionValid(): boolean {
   if (!currentSession) return false
   if (!currentSession.isLoggedIn) return false
   return new Date() < currentSession.expiresAt
+}
+
+/**
+ * 세션 유효성 검사 (비동기 버전 - DB 로드 포함)
+ * 메모리에 세션이 없으면 DB에서 로드 시도
+ */
+export async function ensureValidSession(): Promise<boolean> {
+  // 메모리에 유효한 세션이 있으면 OK
+  if (isSessionValid()) return true
+
+  // DB에서 로드 시도
+  if (!sessionLoadedFromDB) {
+    sessionLoadedFromDB = true
+    const storedSession = await loadSessionFromDB()
+    if (storedSession) {
+      currentSession = storedSession
+      console.log('[STO] DB에서 세션 로드 완료')
+      return true
+    }
+  }
+
+  return false
 }
 
 /**
@@ -350,10 +422,12 @@ export function setSession(session: STOSession): void {
 }
 
 /**
- * 세션 클리어
+ * 세션 클리어 (메모리 + DB)
  */
-export function clearSession(): void {
+export async function clearSession(): Promise<void> {
   currentSession = null
+  sessionLoadedFromDB = false
+  await clearSessionFromDB()
 }
 
 /**
@@ -524,4 +598,48 @@ export async function fetchBookingDetail(
 
   const detail = parseBookingDetail(pageResult.html, baseItem)
   return { detail, success: true }
+}
+
+/**
+ * STO에서 파일 다운로드 (사업자등록증 등)
+ * @param fileUrl STO 파일 다운로드 URL
+ * @returns 파일 Blob 또는 null
+ */
+export async function downloadSTOFile(fileUrl: string): Promise<{
+  blob: Blob | null
+  contentType: string
+  success: boolean
+  error?: string
+}> {
+  if (!isSessionValid()) {
+    return { blob: null, contentType: '', success: false, error: '유효하지 않은 세션입니다.' }
+  }
+
+  try {
+    const response = await fetch(fileUrl, {
+      method: 'GET',
+      headers: {
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+        'Cookie': currentSession!.cookies,
+      },
+    })
+
+    if (!response.ok) {
+      return { blob: null, contentType: '', success: false, error: `HTTP ${response.status}` }
+    }
+
+    // 로그인 페이지로 리다이렉트되면 세션 만료
+    if (response.url.includes('login') || response.url.includes('logout')) {
+      currentSession!.isLoggedIn = false
+      return { blob: null, contentType: '', success: false, error: '세션이 만료되었습니다.' }
+    }
+
+    const contentType = response.headers.get('content-type') || 'application/octet-stream'
+    const blob = await response.blob()
+
+    return { blob, contentType, success: true }
+  } catch (error) {
+    console.error('[STO] 파일 다운로드 오류:', error)
+    return { blob: null, contentType: '', success: false, error: `다운로드 오류: ${error}` }
+  }
 }

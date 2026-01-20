@@ -44,6 +44,8 @@ export default function BookingModal({
   const [receiptType, setReceiptType] = useState('')
   const [companyPhone, setCompanyPhone] = useState('')
   const [businessNumber, setBusinessNumber] = useState('')
+  const [businessLicense, setBusinessLicense] = useState('')
+  const [businessLicenseUrl, setBusinessLicenseUrl] = useState('')
   const [specialNote, setSpecialNote] = useState('')
   const [studioUsageMethod, setStudioUsageMethod] = useState('')
   const [fileDeliveryMethod, setFileDeliveryMethod] = useState('')
@@ -80,6 +82,8 @@ export default function BookingModal({
         setReceiptType(booking.receipt_type || '')
         setCompanyPhone(booking.company_phone || '')
         setBusinessNumber(booking.business_number || '')
+        setBusinessLicense(booking.business_license || '')
+        setBusinessLicenseUrl(booking.business_license_url || '')
         setSpecialNote(booking.special_note || '')
         setStudioUsageMethod(booking.studio_usage_method || '')
         setFileDeliveryMethod(booking.file_delivery_method || '')
@@ -108,6 +112,8 @@ export default function BookingModal({
         setReceiptType('')
         setCompanyPhone('')
         setBusinessNumber('')
+        setBusinessLicense('')
+        setBusinessLicenseUrl('')
         setSpecialNote('')
         setStudioUsageMethod('')
         setFileDeliveryMethod('')
@@ -195,6 +201,8 @@ export default function BookingModal({
         receipt_type: receiptType.trim() || null,
         company_phone: companyPhone.trim() || null,
         business_number: businessNumber.trim() || null,
+        business_license: businessLicense.trim() || null,
+        business_license_url: businessLicenseUrl.trim() || null,
         special_note: specialNote.trim() || null,
         studio_usage_method: studioUsageMethod.trim() || null,
         file_delivery_method: fileDeliveryMethod.trim() || null,
@@ -522,6 +530,42 @@ export default function BookingModal({
                     className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
                   />
                 </div>
+
+                {/* 사업자등록증 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">사업자등록증 파일명</label>
+                    <input
+                      type="text"
+                      value={businessLicense}
+                      onChange={(e) => setBusinessLicense(e.target.value)}
+                      placeholder="파일명.pdf"
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-400 mb-1.5">사업자등록증 URL</label>
+                    <input
+                      type="url"
+                      value={businessLicenseUrl}
+                      onChange={(e) => setBusinessLicenseUrl(e.target.value)}
+                      placeholder="https://..."
+                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
+                    />
+                  </div>
+                </div>
+                {businessLicenseUrl && (
+                  <div className="mt-1">
+                    <a
+                      href={businessLicenseUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-purple-400 hover:text-purple-300 underline"
+                    >
+                      파일 보기 →
+                    </a>
+                  </div>
+                )}
 
                 {/* 스튜디오 이용 정보 */}
                 <div className="pt-3 border-t border-white/5">

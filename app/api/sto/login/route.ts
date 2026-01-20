@@ -1,12 +1,11 @@
 // STO 로그인 API
 import { NextRequest, NextResponse } from 'next/server'
-import { loginToSTO, setSession } from '@/lib/sto/client'
-import { STOSession } from '@/lib/sto/types'
+import { loginToSTO, autoLoginToSTO } from '@/lib/sto/client'
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { email, password, verificationCode } = body
+    const { email, password, verificationCode, autoLogin } = body
 
     if (!email || !password) {
       return NextResponse.json(
@@ -15,6 +14,26 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // 자동 로그인 모드 (Gmail에서 인증코드 자동 추출)
+    if (autoLogin) {
+      console.log('[API] STO 자동 로그인 시작')
+      const result = await autoLoginToSTO({ email, password })
+
+      if (!result.success) {
+        return NextResponse.json(
+          { success: false, error: result.error },
+          { status: 401 }
+        )
+      }
+
+      return NextResponse.json({
+        success: true,
+        message: '자동 로그인 성공',
+        expiresAt: result.session?.expiresAt,
+      })
+    }
+
+    // 기존 수동 로그인 모드
     const result = await loginToSTO({ email, password }, verificationCode)
 
     if (result.needsVerification) {

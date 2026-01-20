@@ -1,13 +1,38 @@
-node_modules
-example/
+# Dependencies
 node_modules/
-.next/
-.env.local
-reservation_example_html/
 
-# Sensitive/temporary files
-*.har
-*.xlsx
-nul
+# Next.js
+.next/
+out/
+
+# Environment variables (민감 정보)
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build
 tsconfig.tsbuildinfo
+
+# Logs
+*.log
+npm-debug.log*
+
+# Test/Debug files
+example/
+reservation_example_html/
+*.har
 sto-network-tracker.js
+
+# Temporary
+nul
+*.tmp
+
+# Claude Code
+.claude/

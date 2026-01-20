@@ -47,9 +47,10 @@ export interface STOBookingDetail extends STOBookingListItem {
   bankAccount: string       // 입금 계좌
 
   // 증빙 발행
-  businessLicense: string   // 사업자등록증 파일명
-  receiptType: string       // 증빙 발행 유형 (미대상, 세금계산서 등)
-  businessNumber: string    // 사업자번호
+  businessLicense: string      // 사업자등록증 파일명
+  businessLicenseUrl: string   // 사업자등록증 다운로드 URL
+  receiptType: string          // 증빙 발행 유형 (미대상, 세금계산서 등)
+  businessNumber: string       // 사업자번호
 
   // No-Show
   hasNoShow: boolean        // No-Show 여부
@@ -104,13 +105,13 @@ export const STO_CONFIG = {
 
 // 시설 ID 매핑 (STO → 내부)
 // STO: 대형 스튜디오, 1인 스튜디오 #1, 1인 스튜디오 #2
-// 내부: 메인 스튜디오(1), 1인 스튜디오 A(2), 1인 스튜디오 B(3)
+// 내부 DB: 메인 스튜디오(1), 1인 스튜디오(부모)(2), 1인 스튜디오 A(3), 1인 스튜디오 B(4)
 export const FACILITY_MAP: Record<string, number> = {
   '대형 스튜디오': 1,         // 메인 스튜디오
-  '1인 스튜디오 #1': 2,       // 1인 스튜디오 A
-  '1인 스튜디오 #2': 3,       // 1인 스튜디오 B
-  '1인 스튜디오 A': 2,        // 호환성
-  '1인 스튜디오 B': 3,        // 호환성
+  '1인 스튜디오 #1': 3,       // 1인 스튜디오 A
+  '1인 스튜디오 #2': 4,       // 1인 스튜디오 B
+  '1인 스튜디오 A': 3,        // 호환성
+  '1인 스튜디오 B': 4,        // 호환성
 }
 
 // 상태 텍스트 매핑

@@ -58,3 +58,8 @@ SELECT s.id, s.parent_id, s.name, s.alias, s.is_category,
        (SELECT COUNT(*) FROM bookings b WHERE b.studio_id = s.id) as booking_count
 FROM studios s
 ORDER BY s.sort_order, s.id;
+
+-- =============================================
+-- STO 상세 필드 추가 마이그레이션 (별도 실행)
+-- =============================================
+-- ALTER TABLE bookings ADD COLUMN IF NOT EXISTS business_license_url TEXT;

@@ -1,15 +1,23 @@
 # 종로 스튜디오 대시보드
 
-종로 미디어센터 스튜디오 예약 관리 시스템 대시보드
+한국SNS인재개발원 종로 스튜디오 시설 예약 관리 시스템 (FMS)
 
 ## 개요
 
-3개 스튜디오의 예약 현황을 관리하고 통계를 확인할 수 있는 관리자 대시보드입니다.
+서울관광재단(STO) 예약 시스템과 연동하여 스튜디오 예약을 실시간으로 관리하는 대시보드입니다.
 
-<img width="1915" height="907" alt="image" src="https://github.com/user-attachments/assets/03d46666-4836-4eaf-85b8-b4b231ec2160" />
-<img width="1915" height="907" alt="image" src="https://github.com/user-attachments/assets/04af3287-91eb-40e4-8519-0e1c168e0ed0" />
+<img width="1915" height="907" alt="대시보드 메인" src="https://github.com/user-attachments/assets/03d46666-4836-4eaf-85b8-b4b231ec2160" />
+<img width="1915" height="907" alt="캘린더 뷰" src="https://github.com/user-attachments/assets/04af3287-91eb-40e4-8519-0e1c168e0ed0" />
 
+### 주요 기능
 
+- **예약 관리**: STO 시스템 연동을 통한 실시간 예약 동기화
+- **대시보드**: 오늘의 예약 현황, 스튜디오 가동률 통계
+- **캘린더 뷰**: 월별/주별 예약 일정 확인
+- **장비 관리**: 스튜디오 장비 대여 및 반납 관리
+- **통계/KPI**: 월별 이용 현황 및 성과 지표 관리
+- **키오스크 모드**: 방문객용 예약 확인 화면
+- **라이브 모니터링**: 실시간 스튜디오 현황 모니터
 
 ### 스튜디오 구성
 
@@ -21,291 +29,84 @@
 
 > 참고: ID 2는 1인 스튜디오 카테고리(그룹)로 사용됨
 
-## 개발 진행 상황
-
-> PROJECT_SPEC.md 기준 진행률
-
-### Phase 1: 프로젝트 설정 - 작업 완료
-- [x] package.json 생성
-- [x] next.config.ts 설정
-- [x] tailwind.config.ts 설정
-- [x] tsconfig.json 설정
-- [x] .env.local 설정 (Supabase)
-- [ ] components.json (shadcn/ui)
-
-### Phase 2: 기반 구조 - 작업 완료
-- [x] Supabase 클라이언트 (lib/supabase/)
-- [x] 유틸리티 함수 (lib/utils/)
-- [x] 상수 정의 (lib/constants.ts)
-- [x] 타입 정의 (types/supabase.ts)
-- [ ] Validation 스키마 (lib/validations/)
-
-### Phase 3: UI 컴포넌트 - 작업 완료
-- [ ] shadcn/ui 기본 컴포넌트 설치 - **미설치 (커스텀으로 대체)**
-- [x] 커스텀 컴포넌트 (GlassCard, StatusBadge, StudioBadge, Select)
-- [x] 레이아웃 컴포넌트 (AdminLayout, Sidebar, MobileNav)
-- [x] 글라스모피즘 다크 테마 적용
-
-### Phase 4: 레이아웃 - 작업 완료
-- [x] 루트 레이아웃 (app/layout.tsx)
-- [x] 관리자 레이아웃 (AdminLayout 컴포넌트)
-- [x] 키오스크 레이아웃 (app/kiosk/page.tsx)
-- [ ] 인증 레이아웃 (app/(auth)/layout.tsx) - **미구현**
-
-### Phase 5: 키오스크 - 작업 완료
-- [x] 타임라인 컴포넌트
-- [x] 키오스크 페이지 (app/kiosk/page.tsx)
-- [x] 실시간 갱신 (1분 간격)
-
-### Phase 6: 예약 관리 - 작업 완료 (CRUD 구현)
-- [x] 예약 목록 페이지 (Supabase 실시간)
-- [ ] 예약 상세 페이지
-- [x] 예약 등록/수정 모달 (BookingModal.tsx)
-- [x] 예약 삭제 기능 (ConfirmModal.tsx)
-- [x] 예약 캘린더 페이지 (Supabase 연동)
-- [x] 엑셀 업로드 기능 (ExcelUploadModal.tsx)
-- [x] 예약 쿼리 함수 (createBooking, updateBooking, deleteBooking, checkBookingConflict)
-
-### Phase 7: 장비 관리 - 작업 완료 (CRUD 구현)
-- [x] 장비 목록 페이지 (Supabase 실시간)
-- [x] 장비 데이터 파싱 (장비 목록.xlsx → SQL seed)
-- [ ] 장비 상세 페이지
-- [x] 장비 등록/수정 모달 (EquipmentModal.tsx)
-- [x] 장비 삭제 기능
-- [ ] 사진 업로드 기능
-- [x] 장비 쿼리 함수 (createEquipment, updateEquipment, deleteEquipment)
-
-### Phase 8: 인증 - 작업 완료
-- [x] 로그인 페이지 (이메일/비밀번호 + Magic Link)
-- [x] AuthProvider (세션 관리)
-- [x] 화이트리스트 기반 접근 제어
-- [x] 공개 페이지 예외 처리 (/kiosk, /login)
-
-### Phase 9: 통계 - 작업 완료 (Supabase 연동)
-- [x] 통계 페이지 (Supabase 실시간)
-- [x] 가동률 계산 로직
-- [x] KPI 현황 (6개 지표, 연간 목표 대비)
-- [x] 차트 컴포넌트 (커스텀)
-- [x] 전체(연간) 옵션 추가
-- [x] 보고서 다운로드 (CSV)
-
-### Phase 10: STO 연동 - 작업 완료
-- [x] STO 클라이언트 구조 (lib/sto/)
-- [x] STO 설정 페이지 (/settings)
-- [x] 알림 시스템 (NotificationProvider)
-- [x] STO 웹 스크래핑 구현 (로그인, 목록, 상세)
-- [x] 2단계 인증 지원 (이메일 인증코드)
-- [x] 예약 동기화 API (/api/sto/sync)
-- [x] 상태 변경 감지 및 알림
-
-### Phase 11: KPI 관리 - 작업 완료
-- [x] KPI 관리 페이지 (/kpi)
-- [x] 프로그램/콘텐츠/굿즈 탭 구분
-- [x] Supabase 테이블 스키마 (kpi_tables.sql)
-- [ ] 상세 CRUD 모달 (추후 구현)
-
-### Phase 12: 마무리 - 작업 중
-- [ ] 에러 핸들링
-- [x] 로딩 상태 (Loader2 스피너)
-- [x] 반응형 테스트
-- [ ] 성능 최적화
-- [x] 예약 상태 자동 계산 (IN_USE, DONE)
-
----
-
-### 전체 진행률: 약 95%
-
-| 구분 | 상태 | 비고 |
-|------|------|------|
-| UI/프론트엔드 | 98% | 모든 페이지 UI 완료, CRUD 모달 |
-| 장비 데이터 | 100% | 469개 장비/자재 파싱 완료, SQL seed 생성 |
-| 백엔드/API | 98% | Supabase CRUD + STO API 완료 |
-| 데이터 연동 | 100% | 모든 페이지 실시간 데이터 |
-| 인증 | 100% | Supabase Auth + 화이트리스트 |
-| 키오스크 | 100% | 전체화면 타임라인 완료 |
-| STO 연동 | 95% | 스크래핑 구현 완료, 테스트 필요 |
-| KPI 관리 | 90% | CRUD 모달 구현 완료 |
-
-### 최근 작업 내역 (2026-01-16)
-- **STO 예약 시스템 연동 구현**
-  - STO 웹 스크래핑 클라이언트 (lib/sto/client.ts)
-  - HTML 파서 구현 (lib/sto/parser.ts) - 목록/상세 페이지 파싱
-  - 예약 동기화 로직 (lib/sto/sync.ts) - 신규 예약, 상태 변경 감지
-  - API 라우트 구현 (/api/sto/login, /api/sto/sync, /api/sto/bookings)
-  - 2단계 인증 지원 (이메일 인증코드 입력)
-  - 설정 페이지 UI 업데이트 - 로그인, 동기화, 결과 표시
-  - 브라우저 알림 및 알림음 지원
-- **DB 스키마 업데이트**
-  - bookings 테이블에 sto_reqst_sn, email 컬럼 추가
-  - TypeScript 타입 정의 업데이트
-- **통계 페이지 KPI 연동**
-  - 하드코딩 값 대신 실제 DB 데이터 사용
-  - programs, contents, goods_events 테이블 연동
-- **KPI CRUD 모달 개선**
-  - 프로그램에 program_type 필드 추가
-  - 콘텐츠에 media_type 필드 추가 (VIDEO 타입)
-
-### 작업 내역 (2026-01-15 심야)
-- **AuthProvider 개발모드 수정**
-  - 개발 환경에서 인증 체크 완전 스킵
-  - 무한 로딩 문제 해결
-- **Next.js 15 Suspense 호환성 수정**
-  - auth/callback 페이지 useSearchParams() Suspense 래핑
-
-### 작업 내역 (2026-01-15 야간)
-- **통계 페이지 대폭 개선** (/statistics)
-  - "전체(연간)" 옵션 추가 - 월별 대신 연간 통계 조회 가능
-  - 6개 KPI 지표 표시 (프로그램 60회, 콘텐츠 60건, 굿즈 100%, 스튜디오 250건, 멤버십 230명, 장기이용자 2곳)
-  - Excel(CSV) 보고서 다운로드 기능
-  - 월별 예약 현황 막대 그래프 (연간 선택 시)
-- **STO 예약 시스템 연동 기반 구축**
-  - STO 클라이언트 스켈레톤 (lib/sto/)
-  - 설정 페이지 (/settings) - STO 로그인 정보, 폴링 간격 설정
-  - 알림 시스템 (NotificationProvider) - 토스트 알림
-- **사용자 인증 시스템 구현**
-  - 로그인 페이지 (/login) - 이메일/비밀번호 + Magic Link
-  - AuthProvider - 세션 관리 및 자동 리다이렉트
-  - 화이트리스트 기반 접근 제어
-  - 공개 페이지 예외 처리 (/kiosk, /login)
-- **KPI 관리 페이지 구현** (/kpi)
-  - 프로그램/콘텐츠/굿즈 탭 구분
-  - 각 항목 목록 표시 및 달성률
-  - Supabase 테이블 스키마 (supabase/kpi_tables.sql)
-- **사이드바 메뉴 추가**
-  - KPI 관리 메뉴
-  - 설정 메뉴
-
-### 작업 내역 (2026-01-15 오후)
-- **키오스크 페이지 UI 개선** (/kiosk)
-  - 헤더 레이아웃 변경: 날짜(왼쪽), 시계(오른쪽)
-  - 텍스트 크기 조정 (58px, Pretendard Bold)
-  - 진행 중인 예약에 ON-AIR 배지 추가 (빨간색)
-  - 글로잉 효과 제거, 테두리 유지
-- **실시간 현황 페이지 UI 개선** (/live)
-  - 날짜 네비게이션 중앙 정렬
-- **캘린더 페이지 텍스트 크기 조정** (/calendar)
-  - 모든 텍스트 2-3px 증가 (달력, 일정 패널)
-- **드롭다운 컴포넌트 개선** (Select.tsx)
-  - 화면 오른쪽 끝에서 잘리지 않도록 자동 정렬
-  - 최대 높이 240px + 스크롤 지원
-
-### 작업 내역 (2026-01-15 오전)
-- **예약 상태 자동 계산 시스템 구현**
-  - `lib/utils/bookingStatus.ts`: 쿼리 시점에 IN_USE/DONE 상태 계산
-  - `supabase/computed_status_function.sql`: DB 뷰/함수로 통계 쿼리 지원
-  - 프론트엔드: 예약 목록에서 과거=완료, 현재시간=사용중 자동 표시
-  - 통계: 정확한 상태 집계 (DB 저장 없이 조회 시점 계산)
-- **취소된 예약 데이터 복원**
-  - generateBookingSQL.ts 수정: 취소 건 포함 (총 385건, 취소 62건)
-  - cancelled_at 컬럼 추가
-- **실시간 현황 페이지 개선** (/live)
-  - 진행 중인 예약에 glow pulse 애니메이션 추가
-  - Hydration 에러 수정
-
-### 작업 내역 (2026-01-14 오후)
-- **예약 CRUD 기능 구현**
-  - BookingModal.tsx: 예약 등록/수정 모달
-  - ConfirmModal.tsx: 삭제 확인 모달
-  - createBooking, updateBooking, deleteBooking, cancelBooking 함수
-  - checkBookingConflict: 시간 충돌 검사
-- **장비 CRUD 기능 구현**
-  - EquipmentModal.tsx: 장비 등록/수정 모달
-  - createEquipment, updateEquipment, deleteEquipment 함수
-- **엑셀 업로드 기능 구현**
-  - ExcelUploadModal.tsx: 드래그앤드롭 엑셀 업로드
-  - STO 시스템 엑셀 파일 파싱 (xlsx 라이브러리)
-  - 시간 충돌 자동 체크 후 업로드
-- **RLS 정책 업데이트** (supabase/update_rls.sql)
-  - anon 사용자도 CRUD 가능하도록 임시 변경
-  - booking_status ENUM에 CANCELLED 추가
-  - bookings 테이블에 fee, cancelled_at 컬럼 추가
-
-### 작업 내역 (2026-01-14 오전)
-- **Supabase 연동 완료**: 모든 페이지 실시간 데이터 연동
-- 예약 데이터 쿼리 함수 구현 (getBookings, getBookingsByDate, getBookingsByDateRange)
-- 장비 데이터 쿼리 함수 구현 (getEquipments, getEquipmentStats)
-- 타입 정의 업데이트 (BookingStatus에 CANCELLED 추가, fee/cancelled_at 필드)
-- SQL seed 생성 스크립트 (generateBookingSQL.ts, generateEquipmentSQL.ts)
-- 키오스크 페이지 Supabase 연동 (1분 자동 갱신)
-- CSS @import 순서 수정 (Pretendard 폰트)
-
-### 작업 내역 (2026-01-13)
-- 장비 데이터 파싱 시스템 구현 (장비 목록.xlsx → equipmentData.ts)
-- 장비 일련번호 체계 수립 (MS-001-A, 1A-002 형식)
-- 커스텀 Select 컴포넌트 구현 (글라스모피즘 테마)
-- 스튜디오 명칭 변경 (대형 스튜디오 → 메인 스튜디오)
-
----
-
 ## 기술 스택
 
+### Frontend
 - **Framework**: Next.js 15 (App Router)
-- **Styling**: Tailwind CSS 4
+- **UI**: React 19, TailwindCSS
+- **상태관리**: TanStack Query (React Query)
+- **폼 관리**: React Hook Form + Zod
+- **차트**: Recharts
+- **아이콘**: Lucide React
+
+### Backend
+- **Runtime**: Next.js API Routes (Node.js)
 - **Database**: Supabase (PostgreSQL)
-- **UI**: Glassmorphism 다크 테마
-- **Font**: Pretendard
-- **Icons**: Lucide React
+- **인증**: Supabase Auth
+- **외부 연동**:
+  - STO (서울관광재단) 예약 시스템 스크래핑
+  - Gmail API (자동 로그인 인증코드 추출)
 
-### 예정 기술 (미적용)
-- **State**: TanStack Query v5
-- **Forms**: React Hook Form + Zod
-- **Excel**: xlsx (SheetJS)
-- **Charts**: Recharts
+### 배포
+- **플랫폼**: Vercel
+- **Cron Jobs**: Vercel Cron (세션 유지, 자동 동기화)
 
-## 현재 구현된 페이지
+## 프로젝트 구조
 
-### 대시보드 (/)
-- 오늘의 예약 현황 요약 (Supabase 실시간)
-- 스튜디오별 가동률
-- 최근 예약 목록
+```
+├── app/                    # Next.js App Router 페이지
+│   ├── api/               # API Routes
+│   │   ├── google/        # Gmail API 연동
+│   │   └── sto/           # STO 연동 API
+│   ├── bookings/          # 예약 관리 페이지
+│   ├── calendar/          # 캘린더 뷰
+│   ├── equipments/        # 장비 관리
+│   ├── kiosk/             # 키오스크 모드
+│   ├── kpi/               # KPI 관리
+│   ├── live/              # 라이브 모니터링
+│   ├── settings/          # 설정 (STO 로그인)
+│   └── statistics/        # 통계 페이지
+│
+├── components/            # React 컴포넌트
+│   ├── dashboard/         # 대시보드 위젯
+│   ├── layout/            # 레이아웃 (Sidebar, AdminLayout)
+│   ├── modals/            # 모달 컴포넌트
+│   ├── providers/         # Context Providers
+│   └── ui/                # 공통 UI 컴포넌트
+│
+├── lib/                   # 유틸리티 및 비즈니스 로직
+│   ├── data/              # 데이터 파싱
+│   ├── google/            # Gmail API 클라이언트
+│   ├── sto/               # STO 연동 클라이언트
+│   ├── supabase/          # Supabase 클라이언트
+│   └── utils/             # 유틸리티 함수
+│
+├── supabase/              # 데이터베이스 스키마
+├── types/                 # TypeScript 타입 정의
+└── vercel.json            # Vercel Cron 설정
+```
 
-### 예약 관리 (/bookings)
-- 전체 예약 목록 조회 (Supabase)
-- 검색 및 필터링 (스튜디오, 상태)
-- 페이지네이션
-- 아코디언 상세 보기
+## 환경 변수
 
-### 캘린더 (/calendar)
-- 월간 캘린더 뷰 (Supabase)
-- 날짜별 예약 현황
-- 스튜디오 필터
+`.env.local` 파일에 다음 환경 변수를 설정하세요:
 
-### 키오스크 (/kiosk)
-- 전체화면 타임라인 형태의 일일 예약 현황
-- 현재 시간 표시선
-- 1분마다 자동 갱신
-- 진행 중 예약 표시
+```bash
+# Supabase
+NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
+NEXT_PUBLIC_SUPABASE_ANON_KEY=your_supabase_anon_key
+SUPABASE_SERVICE_ROLE_KEY=your_service_role_key
 
-### 장비 관리 (/equipments)
-- 장비 목록 (469개 - 장비 426개, 자재 43개)
-- 상태별 필터링
-- 위치/카테고리별 분류
-- 점검 필요 장비 알림
+# App URL
+NEXT_PUBLIC_APP_URL=http://localhost:3000
 
-### 통계 (/statistics)
-- 연간 KPI 현황 (6개 지표, 목표 대비 달성률)
-- 전체(연간)/월별 선택 가능
-- 스튜디오별 가동률
-- 시간대별 예약 분포
-- 일별 히트맵 / 월별 막대 그래프
-- 소속별 예약 TOP 10
-- Excel(CSV) 보고서 다운로드
+# Google Gmail API (STO 자동 로그인용 - 선택사항)
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_REFRESH_TOKEN=your_refresh_token
 
-### KPI 관리 (/kpi)
-- 프로그램 운영 목록 (60회 목표)
-- 콘텐츠 제작 목록 (60건 목표)
-- 굿즈/이벤트 목록 (100% 목표)
-- 각 항목 등록/수정/삭제
-
-### 설정 (/settings)
-- STO 시스템 연동 설정
-- 알림 설정 (새 예약, 알림음)
-- 동기화 간격 설정
-
-### 로그인 (/login)
-- 이메일/비밀번호 로그인
-- Magic Link (이메일 링크) 로그인
-- 화이트리스트 기반 접근 제어
+# Vercel Cron Secret (배포 시)
+CRON_SECRET=your_cron_secret
+```
 
 ## 설치 및 실행
 
@@ -313,78 +114,65 @@
 # 의존성 설치
 npm install
 
-# 환경변수 설정 (.env.local)
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_ANON_KEY=your_anon_key
-
 # 개발 서버 실행
 npm run dev
 
-# 프로덕션 빌드
+# 빌드
 npm run build
+
+# 프로덕션 실행
+npm start
 ```
 
-## Supabase 설정
+## STO 연동
 
-### 테이블 생성
-```bash
-# supabase/init.sql 실행
-```
+### 스튜디오 매핑
+| STO 시설명 | 내부 studio_id |
+|-----------|---------------|
+| 대형 스튜디오 | 1 (메인 스튜디오) |
+| 1인 스튜디오 #1 | 3 (1인 스튜디오 A) |
+| 1인 스튜디오 #2 | 4 (1인 스튜디오 B) |
 
-### 시드 데이터
-```bash
-# 예약 데이터 SQL 생성
-npx ts-node scripts/generateBookingSQL.ts
+### 동기화 동작
+- **수동 동기화**: 설정 페이지에서 버튼 클릭
+- **자동 동기화** (Vercel 배포 시):
+  - Keep-alive: 5분마다 (세션 유지)
+  - 동기화: 10분마다 (신규 예약 및 상태 변경 감지)
+  - 업무시간: 월~금 09:00~17:00
 
-# 장비 데이터 SQL 생성
-npx ts-node scripts/generateEquipmentSQL.ts
+### 자동 로그인
+Gmail API를 연동하면 STO 로그인 시 이메일 인증 코드를 자동으로 추출하여 로그인합니다.
 
-# 생성된 SQL 파일을 Supabase SQL Editor에서 실행
-# - supabase/seed_bookings.sql
-# - supabase/seed_equipments.sql
-```
+## 데이터베이스 스키마
 
-## 남은 작업
+주요 테이블:
+- `studios`: 스튜디오 정보
+- `bookings`: 예약 정보 (STO 연동 데이터 포함)
+- `equipments`: 장비 정보
+- `equipment_rentals`: 장비 대여 기록
+- `kpi_monthly`: 월별 KPI 데이터
+- `sto_sessions`: STO 세션 정보 (Vercel 배포용)
 
-1. **STO 연동 테스트**
-   - 실제 STO 시스템 로그인 테스트
-   - 예약 동기화 테스트
-   - 이메일 인증코드 자동화 (선택사항)
+## 개발 현황
 
-2. **RLS 정책 강화**
-   - 프로덕션용 RLS 정책 (authenticated 사용자만 CRUD)
+### 완료된 기능
+- [x] 대시보드 (오늘의 예약, 통계 위젯)
+- [x] 예약 관리 (목록, 상세, 수정)
+- [x] 캘린더 뷰
+- [x] STO 연동 (로그인, 동기화, 상세 정보)
+- [x] Gmail API 자동 로그인
+- [x] 장비 관리
+- [x] 통계 페이지
+- [x] KPI 관리
+- [x] 키오스크/라이브 모니터 모드
+- [x] Vercel Cron 설정
 
-3. **실시간 구독**
-   - Supabase Realtime 적용 (현재는 polling)
-
-## 장비 데이터
-
-장비 목록은 `장비 목록.xlsx` 파일에서 파싱됩니다.
-
-### 일련번호 체계
-```
-[위치코드]-[순번]-[서브인덱스]
-
-- MS: 메인 스튜디오
-- 1A: 1인 스튜디오 A
-- 1B: 1인 스튜디오 B
-
-예시: MS-001-A, MS-001-B (같은 종류 장비)
-```
-
-### 파싱 스크립트
-```bash
-npx ts-node scripts/generateEquipmentSQL.ts
-```
-
-### 데이터 현황
-| 위치 | 장비 | 자재 | 합계 |
-|------|------|------|------|
-| 메인 스튜디오 | 290 | 43 | 333 |
-| 1인 스튜디오 A | 69 | 0 | 69 |
-| 1인 스튜디오 B | 67 | 0 | 67 |
-| **총계** | **426** | **43** | **469** |
+### 예정된 기능
+- [ ] 알림 시스템 (Slack/Discord 연동)
+- [ ] 사용자 권한 관리
+- [ ] 예약 충돌 감지
+- [ ] 리포트 생성 및 내보내기
 
 ## 라이선스
 
-Private - 한국SNS인재개발원
+Private - 한국SNS인재개발원 내부용

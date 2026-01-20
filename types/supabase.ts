@@ -50,6 +50,7 @@ export interface Booking {
   discount_rate: number | null; // 대관료 할인율 (%)
   company_phone: string | null; // 전화번호
   business_license: string | null; // 사업자등록증 파일명
+  business_license_url: string | null; // 사업자등록증 다운로드 URL
   receipt_type: string | null; // 증빙 발행 유형
   business_number: string | null; // 사업자번호
   has_no_show: boolean | null; // No-Show 여부
@@ -117,6 +118,7 @@ export type BookingInsert = {
   discount_rate?: number | null;
   company_phone?: string | null;
   business_license?: string | null;
+  business_license_url?: string | null;
   receipt_type?: string | null;
   business_number?: string | null;
   has_no_show?: boolean | null;

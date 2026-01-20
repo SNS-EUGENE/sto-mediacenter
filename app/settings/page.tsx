@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
-import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key } from 'lucide-react'
+import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key, Zap } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // STO 연동 상태 타입
@@ -77,6 +77,28 @@ export default function SettingsPage() {
     }
   }, [])
 
+  // STO 세션 keep-alive (5분마다)
+  const keepAlive = useCallback(async () => {
+    if (!stoStatus.connected) return
+
+    try {
+      const response = await fetch('/api/sto/keepalive', { method: 'POST' })
+      const data = await response.json()
+
+      if (!data.success) {
+        // 세션 만료됨
+        if (data.needsLogin) {
+          setStoStatus(prev => ({ ...prev, connected: false }))
+          setTestResult({ success: false, message: '세션이 만료되었습니다. 다시 로그인해주세요.' })
+        }
+      } else {
+        console.log('[Keep-alive] 세션 유지 성공:', data.expiresAt)
+      }
+    } catch (error) {
+      console.error('[Keep-alive] 실패:', error)
+    }
+  }, [stoStatus.connected])
+
   // 저장된 설정 로드 (localStorage)
   useEffect(() => {
     const savedEmail = localStorage.getItem('sto_email')
@@ -92,6 +114,19 @@ export default function SettingsPage() {
     // STO 상태 확인
     checkSTOStatus()
   }, [checkSTOStatus])
+
+  // Keep-alive 주기적 실행 (5분마다)
+  useEffect(() => {
+    if (!stoStatus.connected) return
+
+    // 즉시 한번 실행
+    keepAlive()
+
+    // 5분마다 실행
+    const interval = setInterval(keepAlive, 5 * 60 * 1000)
+
+    return () => clearInterval(interval)
+  }, [stoStatus.connected, keepAlive])
 
   // STO 로그인
   const handleLogin = async () => {
@@ -170,6 +205,8 @@ export default function SettingsPage() {
     try {
       const response = await fetch('/api/sto/sync', {
         method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ fetchDetail: true }),  // maxRecords 생략 = 전체
       })
 
       const data: SyncResult = await response.json()
@@ -356,30 +393,75 @@ export default function SettingsPage() {
                 </div>
               )}
 
-              <button
-                onClick={handleLogin}
-                disabled={isTesting || stoStatus.connected}
-                className="flex items-center justify-center gap-2 w-full px-4 py-3 rounded-xl bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-colors disabled:opacity-50"
-              >
-                {isTesting ? (
-                  <>
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                    {needsVerification ? '인증 중...' : '로그인 중...'}
-                  </>
-                ) : stoStatus.connected ? (
-                  <>
-                    <CheckCircle className="w-4 h-4" />
-                    연결됨
-                  </>
-                ) : needsVerification ? (
-                  <>
-                    <Key className="w-4 h-4" />
-                    인증코드 확인
-                  </>
-                ) : (
-                  <>STO 로그인</>
+              <div className="flex gap-3">
+                <button
+                  onClick={handleLogin}
+                  disabled={isTesting || stoStatus.connected}
+                  className="flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-purple-500/20 text-purple-400 hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+                >
+                  {isTesting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      {needsVerification ? '인증 중...' : '로그인 중...'}
+                    </>
+                  ) : stoStatus.connected ? (
+                    <>
+                      <CheckCircle className="w-4 h-4" />
+                      연결됨
+                    </>
+                  ) : needsVerification ? (
+                    <>
+                      <Key className="w-4 h-4" />
+                      인증코드 확인
+                    </>
+                  ) : (
+                    <>STO 로그인</>
+                  )}
+                </button>
+
+                {/* 자동 로그인 버튼 */}
+                {!stoStatus.connected && !needsVerification && (
+                  <button
+                    onClick={async () => {
+                      if (!stoEmail || !stoPassword) {
+                        setTestResult({ success: false, message: '이메일과 비밀번호를 입력해주세요' })
+                        return
+                      }
+                      setIsTesting(true)
+                      setTestResult({ success: false, message: 'Gmail에서 인증코드 대기 중... (최대 60초)' })
+                      try {
+                        const response = await fetch('/api/sto/login', {
+                          method: 'POST',
+                          headers: { 'Content-Type': 'application/json' },
+                          body: JSON.stringify({
+                            email: stoEmail,
+                            password: stoPassword,
+                            autoLogin: true,
+                          }),
+                        })
+                        const data = await response.json()
+                        if (data.success) {
+                          setStoStatus(prev => ({ ...prev, connected: true }))
+                          setTestResult({ success: true, message: '자동 로그인 성공!' })
+                          localStorage.setItem('sto_email', stoEmail)
+                        } else {
+                          setTestResult({ success: false, message: data.error || '자동 로그인 실패' })
+                        }
+                      } catch {
+                        setTestResult({ success: false, message: '자동 로그인 중 오류 발생' })
+                      } finally {
+                        setIsTesting(false)
+                      }
+                    }}
+                    disabled={isTesting || stoStatus.connected}
+                    className="flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 transition-colors disabled:opacity-50"
+                    title="Gmail에서 인증코드를 자동으로 가져와 로그인합니다"
+                  >
+                    <Zap className="w-4 h-4" />
+                    자동
+                  </button>
                 )}
-              </button>
+              </div>
 
               {/* 동기화 결과 상세 */}
               {syncResult && (syncResult.newBookingsCount > 0 || syncResult.statusChangesCount > 0) && (

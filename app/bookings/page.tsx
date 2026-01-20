@@ -440,6 +440,24 @@ export default function BookingsPage() {
                               <p className="text-sm text-white">{booking.business_number}</p>
                             </div>
                           )}
+                          {booking.business_license && (
+                            <div className="col-span-2 lg:col-span-4">
+                              <p className="text-xs text-gray-500 mb-1">사업자등록증</p>
+                              {booking.business_license_url ? (
+                                <a
+                                  href={booking.business_license_url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-sm text-purple-400 hover:text-purple-300 underline"
+                                  onClick={(e) => e.stopPropagation()}
+                                >
+                                  {booking.business_license}
+                                </a>
+                              ) : (
+                                <p className="text-sm text-white">{booking.business_license}</p>
+                              )}
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex gap-2 pt-3 border-t border-white/5">

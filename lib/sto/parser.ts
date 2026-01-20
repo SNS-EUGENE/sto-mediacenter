@@ -124,6 +124,7 @@ export function parseBookingDetail(html: string, listItem: STOBookingListItem): 
     rentalFee: 0,
     bankAccount: '',
     businessLicense: '',
+    businessLicenseUrl: '',
     receiptType: '',
     businessNumber: '',
     hasNoShow: false,
@@ -228,9 +229,20 @@ export function parseBookingDetail(html: string, listItem: STOBookingListItem): 
   detail.bankAccount = extractFieldValue('시설 대관료 입금 계좌')
 
   // ========== 증빙 발행 ==========
-  // 사업자등록증 파일명
-  const bizLicenseMatch = html.match(/<a[^>]*class=["'][^"']*file-down[^"']*["'][^>]*>([^<]+\.pdf)/i)
-  detail.businessLicense = bizLicenseMatch ? extractText(bizLicenseMatch[1]) : ''
+  // 사업자등록증 파일 - fileList1 영역에서 실제 다운로드 URL이 있는 링크 추출
+  // href에 /comm/getFile이 포함된 것만 매칭 (JS 템플릿/placeholder 제외)
+  const bizLicenseMatch = html.match(/<a[^>]*class=["'][^"']*file-name[^"']*["'][^>]*href=["']([^"']*\/comm\/getFile[^"']+)["'][^>]*>([^<]+)/i)
+  if (bizLicenseMatch) {
+    const href = bizLicenseMatch[1].replace(/&amp;/g, '&')
+    detail.businessLicenseUrl = href.startsWith('http') ? href : `https://sto3788.sto.or.kr${href}`
+    // 파일명에서 (용량 : xxx, 다운로드 : xxx) 부분 제거
+    const fileNameRaw = bizLicenseMatch[2]
+    const fileNameClean = fileNameRaw.split(/\s*\(용량/)[0].trim()
+    // 파일명이 유효한지 체크
+    if (fileNameClean && !fileNameClean.includes('${') && fileNameClean.length > 3) {
+      detail.businessLicense = fileNameClean
+    }
+  }
 
   // 증빙 발행 유형
   detail.receiptType = extractFieldValue('증빙 발행 유형 선택')
