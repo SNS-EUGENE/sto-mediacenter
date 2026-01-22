@@ -163,20 +163,6 @@ export default function LoginPage() {
             </button>
           </form>
 
-          {/* Dev Mode Notice */}
-          {process.env.NODE_ENV === 'development' && (
-            <div className="mt-6 p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 text-xs">
-              <p className="font-medium mb-1">개발 모드</p>
-              <p>인증 없이 대시보드에 접근할 수 있습니다.</p>
-              <button
-                type="button"
-                onClick={() => router.push('/')}
-                className="mt-2 text-yellow-300 underline"
-              >
-                대시보드로 이동
-              </button>
-            </div>
-          )}
         </div>
 
         {/* Footer */}

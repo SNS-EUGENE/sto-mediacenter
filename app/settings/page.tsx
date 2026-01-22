@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
-import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key, Zap } from 'lucide-react'
+import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key, Zap, Target, Presentation, Film, Gift, Building2, Users, Handshake } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
 // STO 연동 상태 타입
@@ -62,6 +62,16 @@ export default function SettingsPage() {
   const [notifySound, setNotifySound] = useState(true)
   const [pollInterval, setPollInterval] = useState(5) // 분 단위
 
+  // KPI 목표 설정
+  const [kpiTargets, setKpiTargets] = useState({
+    programOperation: 60,      // 프로그램 운영 활성화 (회)
+    contentProduction: 60,     // 콘텐츠 기획 제작 (건)
+    goodsEvent: 100,           // 굿즈 및 이벤트 운영 (%)
+    studioActivation: 250,     // 스튜디오 활성화 (건)
+    membershipStrength: 230,   // 멤버십 운영 강화 (명)
+    longTermUsers: 2,          // 장기 이용자 확보 (곳)
+  })
+
   // STO 세션 상태 확인
   const checkSTOStatus = useCallback(async () => {
     try {
@@ -110,6 +120,17 @@ export default function SettingsPage() {
     if (savedPollInterval) setPollInterval(Number(savedPollInterval))
     if (savedNotifyNew !== null) setNotifyOnNewBooking(savedNotifyNew === 'true')
     if (savedNotifySound !== null) setNotifySound(savedNotifySound === 'true')
+
+    // KPI 목표 설정 로드
+    const savedKpiTargets = localStorage.getItem('kpi_targets')
+    if (savedKpiTargets) {
+      try {
+        const parsed = JSON.parse(savedKpiTargets)
+        setKpiTargets(prev => ({ ...prev, ...parsed }))
+      } catch (e) {
+        console.error('KPI 설정 로드 실패:', e)
+      }
+    }
 
     // STO 상태 확인
     checkSTOStatus()
@@ -263,8 +284,14 @@ export default function SettingsPage() {
     localStorage.setItem('sto_poll_interval', pollInterval.toString())
     localStorage.setItem('sto_notify_new', notifyOnNewBooking.toString())
     localStorage.setItem('sto_notify_sound', notifySound.toString())
+    localStorage.setItem('kpi_targets', JSON.stringify(kpiTargets))
     // 비밀번호는 보안상 localStorage에 저장하지 않음
     setTestResult({ success: true, message: '설정이 저장되었습니다' })
+  }
+
+  // KPI 목표 변경 핸들러
+  const handleKpiChange = (key: keyof typeof kpiTargets, value: number) => {
+    setKpiTargets(prev => ({ ...prev, [key]: value }))
   }
 
   return (
@@ -533,6 +560,142 @@ export default function SettingsPage() {
                 </p>
               </div>
             </div>
+          </GlassCard>
+
+          {/* KPI 목표 설정 */}
+          <GlassCard>
+            <div className="flex items-center gap-2 mb-6">
+              <Target className="w-5 h-5 text-yellow-400" />
+              <h2 className="text-lg font-semibold text-white">KPI 목표 설정</h2>
+              <span className="text-xs text-gray-500 ml-auto">연간 목표</span>
+            </div>
+
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* 프로그램 운영 활성화 */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-rose-500/20">
+                    <Presentation className="w-4 h-4 text-rose-400" />
+                  </div>
+                  <span className="text-sm text-white">프로그램 운영</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={kpiTargets.programOperation}
+                    onChange={(e) => handleKpiChange('programOperation', Number(e.target.value))}
+                    min={1}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-right focus:outline-none focus:border-purple-500/50"
+                  />
+                  <span className="text-sm text-gray-400 w-8">회</span>
+                </div>
+              </div>
+
+              {/* 콘텐츠 기획 제작 */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-orange-500/20">
+                    <Film className="w-4 h-4 text-orange-400" />
+                  </div>
+                  <span className="text-sm text-white">콘텐츠 제작</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={kpiTargets.contentProduction}
+                    onChange={(e) => handleKpiChange('contentProduction', Number(e.target.value))}
+                    min={1}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-right focus:outline-none focus:border-purple-500/50"
+                  />
+                  <span className="text-sm text-gray-400 w-8">건</span>
+                </div>
+              </div>
+
+              {/* 굿즈 및 이벤트 */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-emerald-500/20">
+                    <Gift className="w-4 h-4 text-emerald-400" />
+                  </div>
+                  <span className="text-sm text-white">굿즈/이벤트</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={kpiTargets.goodsEvent}
+                    onChange={(e) => handleKpiChange('goodsEvent', Number(e.target.value))}
+                    min={1}
+                    max={100}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-right focus:outline-none focus:border-purple-500/50"
+                  />
+                  <span className="text-sm text-gray-400 w-8">%</span>
+                </div>
+              </div>
+
+              {/* 스튜디오 활성화 */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-violet-500/20">
+                    <Building2 className="w-4 h-4 text-violet-400" />
+                  </div>
+                  <span className="text-sm text-white">스튜디오 활성화</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={kpiTargets.studioActivation}
+                    onChange={(e) => handleKpiChange('studioActivation', Number(e.target.value))}
+                    min={1}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-right focus:outline-none focus:border-purple-500/50"
+                  />
+                  <span className="text-sm text-gray-400 w-8">건</span>
+                </div>
+              </div>
+
+              {/* 멤버십 운영 강화 */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-cyan-500/20">
+                    <Users className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <span className="text-sm text-white">멤버십 강화</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={kpiTargets.membershipStrength}
+                    onChange={(e) => handleKpiChange('membershipStrength', Number(e.target.value))}
+                    min={1}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-right focus:outline-none focus:border-purple-500/50"
+                  />
+                  <span className="text-sm text-gray-400 w-8">명</span>
+                </div>
+              </div>
+
+              {/* 장기 이용자 확보 */}
+              <div className="p-4 rounded-xl bg-white/5 border border-white/10">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-amber-500/20">
+                    <Handshake className="w-4 h-4 text-amber-400" />
+                  </div>
+                  <span className="text-sm text-white">장기 이용자</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    value={kpiTargets.longTermUsers}
+                    onChange={(e) => handleKpiChange('longTermUsers', Number(e.target.value))}
+                    min={1}
+                    className="flex-1 px-3 py-2 rounded-lg bg-white/5 border border-white/10 text-white text-right focus:outline-none focus:border-purple-500/50"
+                  />
+                  <span className="text-sm text-gray-400 w-8">곳</span>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-4">
+              * 설정한 목표는 통계 페이지의 KPI 현황에 반영됩니다.
+            </p>
           </GlassCard>
 
           {/* 알림 설정 */}

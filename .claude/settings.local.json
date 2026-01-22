@@ -24,7 +24,21 @@
       "Bash(node scripts/parseEquipment.js:*)",
       "Bash(taskkill /F /PID 16284)",
       "Bash(npx tsx:*)",
-      "Bash(npx next build)"
+      "Bash(npx next build)",
+      "Bash(npx next dev:*)",
+      "Bash(npx ts-node:*)",
+      "Bash(dir:*)",
+      "Bash(node scripts/generateEquipmentSQL.mjs:*)",
+      "Bash(taskkill:*)",
+      "Bash(npx supabase db execute:*)",
+      "Bash(tasklist:*)",
+      "Bash(findstr:*)",
+      "Bash(python3:*)",
+      "Bash(echo:*)",
+      "Bash(git pull:*)",
+      "Bash(git stash:*)",
+      "Bash(git reset:*)",
+      "Bash(git filter-branch:*)"
     ]
   }
 }

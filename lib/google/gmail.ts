@@ -48,7 +48,7 @@ export async function fetchSTOVerificationCode(): Promise<{
   success: boolean
   code?: string
   error?: string
-  emailDate?: string
+  emailDate?: string | null
 }> {
   try {
     const refreshToken = process.env.GOOGLE_REFRESH_TOKEN

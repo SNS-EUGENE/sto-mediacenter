@@ -7,7 +7,7 @@ import Select from '@/components/ui/Select'
 import { getBookingsByDateRange } from '@/lib/supabase/queries'
 import { supabase } from '@/lib/supabase/client'
 import { STUDIOS } from '@/lib/constants'
-import { Calendar, TrendingUp, Clock, Users, Target, Award, Building2, Loader2, Presentation, Film, Gift, Handshake, Download, FileSpreadsheet, FileText } from 'lucide-react'
+import { Calendar, TrendingUp, Clock, Users, Target, Award, Building2, Loader2, Presentation, Film, Gift, Handshake, Download, FileSpreadsheet, FileText, Banknote } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { BookingWithStudio } from '@/types/supabase'
 
@@ -18,14 +18,24 @@ interface KPIData {
   goodsAchievementRate: number
 }
 
-// KPI 목표 및 계산 (2025년 목표)
-const KPI_TARGETS = {
-  programOperation: { target: 60, label: '프로그램 운영 활성화', unit: '회', icon: 'Presentation', color: 'rose' },
-  contentProduction: { target: 60, label: '콘텐츠 기획 제작', unit: '건', icon: 'Film', color: 'orange' },
-  goodsEvent: { target: 100, label: '굿즈 및 이벤트 운영', unit: '%', icon: 'Gift', color: 'emerald' },
-  studioActivation: { target: 250, label: '스튜디오 활성화', unit: '건', icon: 'Building2', color: 'violet', businessDays: 247 },
-  membershipStrength: { target: 230, label: '멤버십 운영 강화', unit: '명', icon: 'Users', color: 'cyan' },
-  longTermUsers: { target: 2, label: '장기 이용자 확보', unit: '곳', icon: 'Handshake', color: 'amber' },
+// KPI 기본 목표 (설정에서 변경 가능)
+const DEFAULT_KPI_TARGETS = {
+  programOperation: 60,
+  contentProduction: 60,
+  goodsEvent: 100,
+  studioActivation: 250,
+  membershipStrength: 230,
+  longTermUsers: 2,
+}
+
+// KPI 메타 정보
+const KPI_META = {
+  programOperation: { label: '프로그램 운영 활성화', unit: '회', icon: 'Presentation', color: 'rose' },
+  contentProduction: { label: '콘텐츠 기획 제작', unit: '건', icon: 'Film', color: 'orange' },
+  goodsEvent: { label: '굿즈 및 이벤트 운영', unit: '%', icon: 'Gift', color: 'emerald' },
+  studioActivation: { label: '스튜디오 활성화', unit: '건', icon: 'Building2', color: 'violet', businessDays: 247 },
+  membershipStrength: { label: '멤버십 운영 강화', unit: '명', icon: 'Users', color: 'cyan' },
+  longTermUsers: { label: '장기 이용자 확보', unit: '곳', icon: 'Handshake', color: 'amber' },
 }
 
 // 연간 통계 계산
@@ -54,6 +64,9 @@ function getMonthlyStats(bookings: BookingWithStudio[]) {
 
   const totalHours = monthBookings.reduce((sum, b) => sum + (b.time_slots?.length || 0), 0)
 
+  // 총 매출 계산 (fee 컬럼)
+  const totalRevenue = monthBookings.reduce((sum, b) => sum + (b.fee || 0), 0)
+
   // 상태별 카운트
   const statusCounts: Record<string, number> = {}
   monthBookings.forEach((b) => {
@@ -69,6 +82,7 @@ function getMonthlyStats(bookings: BookingWithStudio[]) {
   return {
     total: monthBookings.length,
     totalHours,
+    totalRevenue,
     statusCounts,
     studioCounts,
     bookings: monthBookings,
@@ -125,24 +139,27 @@ function getTopOrganizations(bookings: BookingWithStudio[], limit: number = 10) 
     .map(([name, count]) => ({ name, count }))
 }
 
-// 스튜디오별 가동률 계산
+// 스튜디오별 가동률 계산 (일 기준: 스튜디오당 하루에 예약이 1건이라도 있으면 가동일)
 function calculateStudioStats(bookings: BookingWithStudio[], year: number, month: number, customDays?: number) {
   const daysInPeriod = customDays || new Date(year, month + 1, 0).getDate()
-  const hoursPerDay = 9 // 9시~18시 = 9시간
-  const maxHoursPerStudio = daysInPeriod * hoursPerDay
 
   return STUDIOS.map((studio) => {
     const studioBookings = bookings.filter(
       (b) => b.studio_id === studio.id && b.status !== 'CANCELLED'
     )
     const totalHours = studioBookings.reduce((sum, b) => sum + (b.time_slots?.length || 0), 0)
-    const utilizationRate = (totalHours / maxHoursPerStudio) * 100
+
+    // 고유 가동일 수 계산 (해당 스튜디오에 예약이 있는 날짜 수)
+    const uniqueDates = new Set(studioBookings.map(b => b.rental_date))
+    const daysWithBookings = uniqueDates.size
+    const utilizationRate = (daysWithBookings / daysInPeriod) * 100
 
     return {
       studioId: studio.id,
       studioName: studio.name,
       totalBookings: studioBookings.length,
       totalHours,
+      daysWithBookings,
       utilizationRate,
     }
   })
@@ -164,6 +181,22 @@ export default function StatisticsPage() {
     contentCount: 0,
     goodsAchievementRate: 0,
   })
+
+  // KPI 목표 (설정에서 불러옴)
+  const [kpiTargets, setKpiTargets] = useState(DEFAULT_KPI_TARGETS)
+
+  // KPI 목표 설정 로드
+  useEffect(() => {
+    const savedKpiTargets = localStorage.getItem('kpi_targets')
+    if (savedKpiTargets) {
+      try {
+        const parsed = JSON.parse(savedKpiTargets)
+        setKpiTargets(prev => ({ ...prev, ...parsed }))
+      } catch (e) {
+        console.error('KPI 목표 로드 실패:', e)
+      }
+    }
+  }, [])
 
   // 연간 및 월간 데이터 로드
   const loadData = useCallback(async () => {
@@ -407,10 +440,11 @@ export default function StatisticsPage() {
                 </div>
 
                 <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {/* 1. 프로그램 운영 활성화 - 60회 */}
+                  {/* 1. 프로그램 운영 활성화 */}
                   {(() => {
                     const current = kpiData.programCount
-                    const rate = Math.round((current / KPI_TARGETS.programOperation.target) * 100)
+                    const target = kpiTargets.programOperation
+                    const rate = Math.round((current / target) * 100)
                     const isAchieved = rate >= 100
                     return (
                       <div className="p-4 rounded-2xl bg-gradient-to-br from-rose-500/10 to-pink-500/10 border border-rose-500/20 relative overflow-hidden">
@@ -423,13 +457,13 @@ export default function StatisticsPage() {
                           <div className="p-2 rounded-lg bg-rose-500/20">
                             <Presentation className="w-4 h-4 text-rose-400" />
                           </div>
-                          <span className="text-sm font-medium text-white">프로그램 운영 활성화</span>
+                          <span className="text-sm font-medium text-white">{KPI_META.programOperation.label}</span>
                         </div>
                         <div className="mb-3">
                           <div className="flex items-baseline gap-1">
                             <span className="text-3xl font-bold text-white">{current}</span>
-                            <span className="text-lg text-gray-400">회</span>
-                            <span className="text-sm text-gray-500 ml-1">/ {KPI_TARGETS.programOperation.target}회</span>
+                            <span className="text-lg text-gray-400">{KPI_META.programOperation.unit}</span>
+                            <span className="text-sm text-gray-500 ml-1">/ {target}{KPI_META.programOperation.unit}</span>
                           </div>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
@@ -441,7 +475,7 @@ export default function StatisticsPage() {
                               <Award className="w-3 h-3" /> 목표 달성
                             </span>
                           ) : current > 0 ? (
-                            <span className="text-xs text-gray-500">{KPI_TARGETS.programOperation.target - current}회 남음</span>
+                            <span className="text-xs text-gray-500">{target - current}{KPI_META.programOperation.unit} 남음</span>
                           ) : (
                             <span className="text-xs text-gray-500">KPI 페이지에서 등록</span>
                           )}
@@ -450,10 +484,11 @@ export default function StatisticsPage() {
                     )
                   })()}
 
-                  {/* 2. 콘텐츠 기획 제작 - 60건 */}
+                  {/* 2. 콘텐츠 기획 제작 */}
                   {(() => {
                     const current = kpiData.contentCount
-                    const rate = Math.round((current / KPI_TARGETS.contentProduction.target) * 100)
+                    const target = kpiTargets.contentProduction
+                    const rate = Math.round((current / target) * 100)
                     const isAchieved = rate >= 100
                     return (
                       <div className="p-4 rounded-2xl bg-gradient-to-br from-orange-500/10 to-amber-500/10 border border-orange-500/20 relative overflow-hidden">
@@ -466,13 +501,13 @@ export default function StatisticsPage() {
                           <div className="p-2 rounded-lg bg-orange-500/20">
                             <Film className="w-4 h-4 text-orange-400" />
                           </div>
-                          <span className="text-sm font-medium text-white">콘텐츠 기획 제작</span>
+                          <span className="text-sm font-medium text-white">{KPI_META.contentProduction.label}</span>
                         </div>
                         <div className="mb-3">
                           <div className="flex items-baseline gap-1">
                             <span className="text-3xl font-bold text-white">{current}</span>
-                            <span className="text-lg text-gray-400">건</span>
-                            <span className="text-sm text-gray-500 ml-1">/ {KPI_TARGETS.contentProduction.target}건</span>
+                            <span className="text-lg text-gray-400">{KPI_META.contentProduction.unit}</span>
+                            <span className="text-sm text-gray-500 ml-1">/ {target}{KPI_META.contentProduction.unit}</span>
                           </div>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
@@ -484,7 +519,7 @@ export default function StatisticsPage() {
                               <Award className="w-3 h-3" /> 목표 달성
                             </span>
                           ) : current > 0 ? (
-                            <span className="text-xs text-gray-500">{KPI_TARGETS.contentProduction.target - current}건 남음</span>
+                            <span className="text-xs text-gray-500">{target - current}{KPI_META.contentProduction.unit} 남음</span>
                           ) : (
                             <span className="text-xs text-gray-500">KPI 페이지에서 등록</span>
                           )}
@@ -493,10 +528,11 @@ export default function StatisticsPage() {
                     )
                   })()}
 
-                  {/* 3. 굿즈 및 이벤트 운영 - 100% */}
+                  {/* 3. 굿즈 및 이벤트 운영 */}
                   {(() => {
                     const current = kpiData.goodsAchievementRate
-                    const rate = current
+                    const target = kpiTargets.goodsEvent
+                    const rate = Math.round((current / target) * 100)
                     const isAchieved = rate >= 100
                     return (
                       <div className="p-4 rounded-2xl bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/20 relative overflow-hidden">
@@ -509,13 +545,13 @@ export default function StatisticsPage() {
                           <div className="p-2 rounded-lg bg-emerald-500/20">
                             <Gift className="w-4 h-4 text-emerald-400" />
                           </div>
-                          <span className="text-sm font-medium text-white">굿즈 및 이벤트 운영</span>
+                          <span className="text-sm font-medium text-white">{KPI_META.goodsEvent.label}</span>
                         </div>
                         <div className="mb-3">
                           <div className="flex items-baseline gap-1">
                             <span className="text-3xl font-bold text-white">{current}</span>
-                            <span className="text-lg text-gray-400">%</span>
-                            <span className="text-sm text-gray-500 ml-1">/ {KPI_TARGETS.goodsEvent.target}%</span>
+                            <span className="text-lg text-gray-400">{KPI_META.goodsEvent.unit}</span>
+                            <span className="text-sm text-gray-500 ml-1">/ {target}{KPI_META.goodsEvent.unit}</span>
                           </div>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
@@ -527,7 +563,7 @@ export default function StatisticsPage() {
                               <Award className="w-3 h-3" /> 목표 달성
                             </span>
                           ) : current > 0 ? (
-                            <span className="text-xs text-gray-500">{KPI_TARGETS.goodsEvent.target - current}% 남음</span>
+                            <span className="text-xs text-gray-500">{target - current}{KPI_META.goodsEvent.unit} 남음</span>
                           ) : (
                             <span className="text-xs text-gray-500">KPI 페이지에서 등록</span>
                           )}
@@ -536,9 +572,10 @@ export default function StatisticsPage() {
                     )
                   })()}
 
-                  {/* 4. 스튜디오 활성화 - 250건 (자동 집계) */}
+                  {/* 4. 스튜디오 활성화 (자동 집계) */}
                   {(() => {
-                    const rate = Math.round((yearlyStats.totalBookings / KPI_TARGETS.studioActivation.target) * 100)
+                    const target = kpiTargets.studioActivation
+                    const rate = Math.round((yearlyStats.totalBookings / target) * 100)
                     const isAchieved = rate >= 100
                     return (
                       <div className="p-4 rounded-2xl bg-gradient-to-br from-violet-500/10 to-purple-500/10 border border-violet-500/20 relative overflow-hidden">
@@ -551,13 +588,13 @@ export default function StatisticsPage() {
                           <div className="p-2 rounded-lg bg-violet-500/20">
                             <Building2 className="w-4 h-4 text-violet-400" />
                           </div>
-                          <span className="text-sm font-medium text-white">스튜디오 활성화</span>
+                          <span className="text-sm font-medium text-white">{KPI_META.studioActivation.label}</span>
                         </div>
                         <div className="mb-3">
                           <div className="flex items-baseline gap-1">
                             <span className="text-3xl font-bold text-white">{yearlyStats.totalBookings}</span>
-                            <span className="text-lg text-gray-400">건</span>
-                            <span className="text-sm text-gray-500 ml-1">/ {KPI_TARGETS.studioActivation.target}건</span>
+                            <span className="text-lg text-gray-400">{KPI_META.studioActivation.unit}</span>
+                            <span className="text-sm text-gray-500 ml-1">/ {target}{KPI_META.studioActivation.unit}</span>
                           </div>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
@@ -574,7 +611,7 @@ export default function StatisticsPage() {
                             </span>
                           ) : (
                             <span className="text-xs text-gray-500">
-                              {KPI_TARGETS.studioActivation.target - yearlyStats.totalBookings}건 남음
+                              {target - yearlyStats.totalBookings}{KPI_META.studioActivation.unit} 남음
                             </span>
                           )}
                         </div>
@@ -582,9 +619,10 @@ export default function StatisticsPage() {
                     )
                   })()}
 
-                  {/* 5. 멤버십 운영 강화 - 230명 (자동 집계) */}
+                  {/* 5. 멤버십 운영 강화 (자동 집계) */}
                   {(() => {
-                    const rate = Math.round((yearlyStats.uniqueApplicants / KPI_TARGETS.membershipStrength.target) * 100)
+                    const target = kpiTargets.membershipStrength
+                    const rate = Math.round((yearlyStats.uniqueApplicants / target) * 100)
                     const isAchieved = rate >= 100
                     return (
                       <div className="p-4 rounded-2xl bg-gradient-to-br from-cyan-500/10 to-blue-500/10 border border-cyan-500/20 relative overflow-hidden">
@@ -597,13 +635,13 @@ export default function StatisticsPage() {
                           <div className="p-2 rounded-lg bg-cyan-500/20">
                             <Users className="w-4 h-4 text-cyan-400" />
                           </div>
-                          <span className="text-sm font-medium text-white">멤버십 운영 강화</span>
+                          <span className="text-sm font-medium text-white">{KPI_META.membershipStrength.label}</span>
                         </div>
                         <div className="mb-3">
                           <div className="flex items-baseline gap-1">
                             <span className="text-3xl font-bold text-white">{yearlyStats.uniqueApplicants}</span>
-                            <span className="text-lg text-gray-400">명</span>
-                            <span className="text-sm text-gray-500 ml-1">/ {KPI_TARGETS.membershipStrength.target}명</span>
+                            <span className="text-lg text-gray-400">{KPI_META.membershipStrength.unit}</span>
+                            <span className="text-sm text-gray-500 ml-1">/ {target}{KPI_META.membershipStrength.unit}</span>
                           </div>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
@@ -620,7 +658,7 @@ export default function StatisticsPage() {
                             </span>
                           ) : (
                             <span className="text-xs text-gray-500">
-                              {KPI_TARGETS.membershipStrength.target - yearlyStats.uniqueApplicants}명 남음
+                              {target - yearlyStats.uniqueApplicants}{KPI_META.membershipStrength.unit} 남음
                             </span>
                           )}
                         </div>
@@ -628,9 +666,10 @@ export default function StatisticsPage() {
                     )
                   })()}
 
-                  {/* 6. 장기 이용자 확보 - 2곳 (자동 집계) */}
+                  {/* 6. 장기 이용자 확보 (자동 집계) */}
                   {(() => {
-                    const rate = Math.round((yearlyStats.uniqueOrganizations / KPI_TARGETS.longTermUsers.target) * 100)
+                    const target = kpiTargets.longTermUsers
+                    const rate = Math.round((yearlyStats.uniqueOrganizations / target) * 100)
                     const isAchieved = rate >= 100
                     return (
                       <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-yellow-500/10 border border-amber-500/20 relative overflow-hidden">
@@ -643,13 +682,13 @@ export default function StatisticsPage() {
                           <div className="p-2 rounded-lg bg-amber-500/20">
                             <Handshake className="w-4 h-4 text-amber-400" />
                           </div>
-                          <span className="text-sm font-medium text-white">장기 이용자 확보</span>
+                          <span className="text-sm font-medium text-white">{KPI_META.longTermUsers.label}</span>
                         </div>
                         <div className="mb-3">
                           <div className="flex items-baseline gap-1">
                             <span className="text-3xl font-bold text-white">{yearlyStats.uniqueOrganizations}</span>
-                            <span className="text-lg text-gray-400">곳</span>
-                            <span className="text-sm text-gray-500 ml-1">/ {KPI_TARGETS.longTermUsers.target}곳</span>
+                            <span className="text-lg text-gray-400">{KPI_META.longTermUsers.unit}</span>
+                            <span className="text-sm text-gray-500 ml-1">/ {target}{KPI_META.longTermUsers.unit}</span>
                           </div>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
@@ -673,7 +712,7 @@ export default function StatisticsPage() {
               </GlassCard>
 
       {/* Overview Stats */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-6">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 lg:gap-4 mb-6">
         <GlassCard>
           <div className="flex items-center gap-3">
             <div className="p-2.5 rounded-xl bg-purple-500/20">
@@ -725,6 +764,20 @@ export default function StatisticsPage() {
             </div>
           </div>
         </GlassCard>
+
+        <GlassCard>
+          <div className="flex items-center gap-3">
+            <div className="p-2.5 rounded-xl bg-emerald-500/20">
+              <Banknote className="w-5 h-5 text-emerald-400" />
+            </div>
+            <div>
+              <p className="text-2xl font-bold text-white">
+                {monthStats.totalRevenue.toLocaleString()}원
+              </p>
+              <p className="text-xs text-gray-500">매출</p>
+            </div>
+          </div>
+        </GlassCard>
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6 mb-6">
@@ -748,7 +801,7 @@ export default function StatisticsPage() {
                     </span>
                     <div className="flex items-center gap-3">
                       <span className="text-xs text-gray-500">
-                        {stat.totalBookings}건 / {stat.totalHours}시간
+                        {stat.daysWithBookings}일 / {stat.totalBookings}건
                       </span>
                       <span className="text-sm font-semibold text-white">
                         {stat.utilizationRate.toFixed(1)}%

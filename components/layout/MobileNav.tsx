@@ -4,11 +4,13 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
-import { X, Target, Settings, Tv } from 'lucide-react'
+import { X, Target, Settings, Tv, LogOut } from 'lucide-react'
+import { useAuth } from '@/components/providers/AuthProvider'
 
 export default function MobileNav() {
   const pathname = usePathname()
   const [showMore, setShowMore] = useState(false)
+  const { user, signOut } = useAuth()
 
   const mainNavItems = [
     {
@@ -91,6 +93,24 @@ export default function MobileNav() {
                 </Link>
               ))}
             </div>
+            {/* 로그아웃 버튼 */}
+            {user && (
+              <div className="mt-2 pt-2 border-t border-white/10">
+                <button
+                  onClick={() => {
+                    setShowMore(false)
+                    signOut()
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-xl text-red-400 hover:bg-red-500/10 transition-colors"
+                >
+                  <LogOut className="w-5 h-5" />
+                  <span className="text-sm">로그아웃</span>
+                  <span className="ml-auto text-xs text-gray-500 truncate max-w-[120px]">
+                    {user.email}
+                  </span>
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

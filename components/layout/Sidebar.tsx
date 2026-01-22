@@ -3,6 +3,8 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { cn } from '@/lib/utils'
+import { useAuth } from '@/components/providers/AuthProvider'
+import { LogOut } from 'lucide-react'
 
 interface SidebarProps {
   collapsed: boolean
@@ -12,6 +14,7 @@ interface SidebarProps {
 
 export default function Sidebar({ collapsed, onToggle, mounted }: SidebarProps) {
   const pathname = usePathname()
+  const { user, signOut } = useAuth()
 
   const navItems = [
     {
@@ -139,13 +142,35 @@ export default function Sidebar({ collapsed, onToggle, mounted }: SidebarProps) 
       <div className={cn('p-4 border-t border-white/5', collapsed && 'p-3')}>
         <div className={cn('glass-card p-3 flex items-center', collapsed ? 'justify-center' : 'gap-3')}>
           <div className="w-9 h-9 rounded-full bg-gradient-to-br from-cyan-400 to-violet-500 flex items-center justify-center text-sm font-bold flex-shrink-0">
-            관
+            {user?.email?.charAt(0).toUpperCase() || '?'}
           </div>
           <div className="sidebar-text flex-1 min-w-0 overflow-hidden">
-            <p className="font-medium text-sm truncate">관리자</p>
-            <p className="text-xs text-white/40 truncate">admin@studio.com</p>
+            <p className="font-medium text-sm truncate">
+              {user?.email?.split('@')[0] || '로그인 필요'}
+            </p>
+            <p className="text-xs text-white/40 truncate">
+              {user?.email || '-'}
+            </p>
           </div>
+          {!collapsed && user && (
+            <button
+              onClick={signOut}
+              className="p-2 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors"
+              title="로그아웃"
+            >
+              <LogOut className="w-4 h-4" />
+            </button>
+          )}
         </div>
+        {collapsed && user && (
+          <button
+            onClick={signOut}
+            className="w-full mt-2 p-2 rounded-lg hover:bg-white/10 text-white/40 hover:text-white transition-colors flex items-center justify-center"
+            title="로그아웃"
+          >
+            <LogOut className="w-4 h-4" />
+          </button>
+        )}
       </div>
     </aside>
   )

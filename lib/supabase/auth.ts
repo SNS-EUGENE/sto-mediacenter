@@ -1,13 +1,21 @@
 // Supabase 인증 관련 유틸리티
 import { supabase } from './client'
 
-// 화이트리스트 사용자 (환경변수 또는 DB에서 관리 권장)
-// 실제 운영 시 Supabase 테이블로 이동
-const WHITELIST_EMAILS = [
-  'admin@koreansns.co.kr',
-  'manager@koreansns.co.kr',
-  // 추가 이메일...
-]
+// 화이트리스트 사용자
+// 환경변수 NEXT_PUBLIC_AUTH_WHITELIST에서 쉼표로 구분된 이메일 목록을 읽어옴
+// 예: NEXT_PUBLIC_AUTH_WHITELIST=admin@example.com,manager@example.com
+const getWhitelistEmails = (): string[] => {
+  const envEmails = process.env.NEXT_PUBLIC_AUTH_WHITELIST || ''
+  const defaultEmails = [
+    'admin@koreansns.co.kr',
+    'manager@koreansns.co.kr',
+  ]
+
+  if (envEmails) {
+    return envEmails.split(',').map(e => e.trim().toLowerCase())
+  }
+  return defaultEmails
+}
 
 /**
  * 이메일 로그인 (Magic Link)
@@ -73,11 +81,8 @@ export async function getSession() {
  * 화이트리스트 확인
  */
 export function isEmailWhitelisted(email: string): boolean {
-  // 개발 환경에서는 모든 이메일 허용
-  if (process.env.NODE_ENV === 'development') {
-    return true
-  }
-  return WHITELIST_EMAILS.includes(email.toLowerCase())
+  const whitelist = getWhitelistEmails()
+  return whitelist.includes(email.toLowerCase())
 }
 
 /**
