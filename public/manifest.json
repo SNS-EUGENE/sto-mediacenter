@@ -1,0 +1,24 @@
+{
+  "name": "종로 스튜디오 FMS",
+  "short_name": "종로 FMS",
+  "description": "종로 서울관광플라자 스튜디오 대관 및 장비 자산 관리 시스템",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a12",
+  "theme_color": "#8b5cf6",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icons/icon-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512x512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

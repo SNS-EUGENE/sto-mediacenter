@@ -3,8 +3,9 @@
 import { useState, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
-import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key, Zap, Target, Presentation, Film, Gift, Building2, Users, Handshake } from 'lucide-react'
+import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key, Zap, Target, Presentation, Film, Gift, Building2, Users, Handshake, Smartphone } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import PushNotificationToggle from '@/components/notifications/PushNotificationToggle'
 
 // STO 연동 상태 타입
 interface STOStatus {
@@ -706,6 +707,15 @@ export default function SettingsPage() {
             </div>
 
             <div className="space-y-4">
+              {/* 푸시 알림 (Web Push) */}
+              <div className="mb-4">
+                <div className="flex items-center gap-2 mb-3">
+                  <Smartphone className="w-4 h-4 text-purple-400" />
+                  <span className="text-sm text-gray-400">백그라운드 푸시 알림</span>
+                </div>
+                <PushNotificationToggle />
+              </div>
+
               {/* 새 예약 알림 */}
               <label className="flex items-center justify-between p-4 rounded-xl bg-white/5 border border-white/10 cursor-pointer hover:bg-white/[0.07] transition-colors">
                 <div>
