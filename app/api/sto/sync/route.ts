@@ -2,6 +2,24 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { syncSTOBookings, getLastSyncTime, isSyncInProgress, initializePreviousStatusMap } from '@/lib/sto/sync'
 import { isSessionValid } from '@/lib/sto/client'
+import { sendNewBookingEmail, sendStatusChangeEmail } from '@/lib/email/send'
+
+// 푸시 알림 발송 함수
+async function sendPushNotification(title: string, body: string, url?: string) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL
+      ? `https://${process.env.VERCEL_URL}`
+      : 'http://localhost:3000'
+
+    await fetch(`${baseUrl}/api/push/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body, url: url || '/bookings' }),
+    })
+  } catch (error) {
+    console.error('[Push] 알림 발송 실패:', error)
+  }
+}
 
 // 동기화 실행
 export async function POST(request: NextRequest) {
@@ -27,6 +45,53 @@ export async function POST(request: NextRequest) {
 
     // 동기화 실행
     const result = await syncSTOBookings(maxRecords, fetchDetail)
+
+    // 새 예약 알림 발송 (푸시 + 이메일)
+    if (result.newBookings.length > 0) {
+      for (const newBooking of result.newBookings) {
+        // 푸시 알림
+        await sendPushNotification(
+          '새 예약 알림',
+          `${newBooking.applicantName}님이 ${newBooking.facilityName}을(를) 예약했습니다. (${newBooking.rentalDate})`,
+          '/bookings'
+        )
+        // 이메일 알림
+        await sendNewBookingEmail({
+          applicantName: newBooking.applicantName,
+          facilityName: newBooking.facilityName,
+          rentalDate: newBooking.rentalDate,
+        })
+      }
+    }
+
+    // 상태 변경 알림 발송 (푸시 + 이메일)
+    if (result.statusChanges.length > 0) {
+      const statusLabels: Record<string, string> = {
+        CONFIRMED: '승인됨',
+        CANCELLED: '취소됨',
+        TENTATIVE: '대기중',
+        PENDING: '접수됨',
+      }
+      for (const change of result.statusChanges) {
+        const prevStatus = change.previousStatus || 'UNKNOWN'
+        // 푸시 알림
+        await sendPushNotification(
+          '예약 상태 변경',
+          `예약 ${change.reqstSn}: ${statusLabels[prevStatus] || prevStatus} → ${statusLabels[change.newStatus] || change.newStatus}`,
+          '/bookings'
+        )
+        // 이메일 알림
+        await sendStatusChangeEmail(
+          {
+            applicantName: change.applicantName,
+            facilityName: change.facilityName,
+            rentalDate: change.rentalDate,
+          },
+          prevStatus,
+          change.newStatus
+        )
+      }
+    }
 
     return NextResponse.json({
       success: result.success,

@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
 import Select from '@/components/ui/Select'
-import { getBookingsByDateRange } from '@/lib/supabase/queries'
+import { getBookingsByDateRange, getLongTermUserCount, getLongTermUsers, type LongTermUser } from '@/lib/supabase/queries'
 import { supabase } from '@/lib/supabase/client'
 import { STUDIOS } from '@/lib/constants'
 import { Calendar, TrendingUp, Clock, Users, Target, Award, Building2, Loader2, Presentation, Film, Gift, Handshake, Download, FileSpreadsheet, FileText, Banknote } from 'lucide-react'
@@ -182,6 +182,10 @@ export default function StatisticsPage() {
     goodsAchievementRate: 0,
   })
 
+  // 장기 이용자 상태
+  const [longTermUserCount, setLongTermUserCount] = useState(0)
+  const [longTermUserList, setLongTermUserList] = useState<LongTermUser[]>([])
+
   // KPI 목표 (설정에서 불러옴)
   const [kpiTargets, setKpiTargets] = useState(DEFAULT_KPI_TARGETS)
 
@@ -253,6 +257,11 @@ export default function StatisticsPage() {
       }
 
       setKpiData({ programCount, contentCount, goodsAchievementRate })
+
+      // 장기 이용자 데이터 로드 (12개월 내 3회 이상 예약한 기관)
+      const longTermStats = await getLongTermUsers(12, 3)
+      setLongTermUserCount(longTermStats.longTermUsers.filter(u => u.isOrganization).length)
+      setLongTermUserList(longTermStats.longTermUsers)
     } catch (err) {
       console.error('Failed to load statistics:', err)
     } finally {
@@ -666,10 +675,10 @@ export default function StatisticsPage() {
                     )
                   })()}
 
-                  {/* 6. 장기 이용자 확보 (자동 집계) */}
+                  {/* 6. 장기 이용자 확보 (자동 집계 - 12개월 내 3회 이상 예약한 기관) */}
                   {(() => {
                     const target = kpiTargets.longTermUsers
-                    const rate = Math.round((yearlyStats.uniqueOrganizations / target) * 100)
+                    const rate = target > 0 ? Math.round((longTermUserCount / target) * 100) : 0
                     const isAchieved = rate >= 100
                     return (
                       <div className="p-4 rounded-2xl bg-gradient-to-br from-amber-500/10 to-yellow-500/10 border border-amber-500/20 relative overflow-hidden">
@@ -686,10 +695,11 @@ export default function StatisticsPage() {
                         </div>
                         <div className="mb-3">
                           <div className="flex items-baseline gap-1">
-                            <span className="text-3xl font-bold text-white">{yearlyStats.uniqueOrganizations}</span>
+                            <span className="text-3xl font-bold text-white">{longTermUserCount}</span>
                             <span className="text-lg text-gray-400">{KPI_META.longTermUsers.unit}</span>
                             <span className="text-sm text-gray-500 ml-1">/ {target}{KPI_META.longTermUsers.unit}</span>
                           </div>
+                          <p className="text-xs text-gray-500 mt-1">12개월 내 3회 이상 예약 기관</p>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
                           <div className={cn('h-full rounded-full transition-all duration-500', isAchieved ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-amber-500 to-yellow-500')} style={{ width: `${Math.min(rate, 100)}%` }} />
@@ -699,9 +709,13 @@ export default function StatisticsPage() {
                             <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                               <Award className="w-3 h-3" /> 목표 달성
                             </span>
+                          ) : longTermUserCount > 0 ? (
+                            <span className="text-xs text-gray-500">
+                              {target - longTermUserCount}곳 추가 필요
+                            </span>
                           ) : (
                             <span className="text-xs text-gray-500">
-                              교육기관·기업 협약
+                              장기 이용 기관 없음
                             </span>
                           )}
                         </div>

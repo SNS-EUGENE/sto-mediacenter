@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
-import { getBookingsByDate, getBookingsByDateRange, getEquipmentStats } from '@/lib/supabase/queries'
+import { getBookingsByDate, getBookingsByDateRange, getEquipmentStats, getTodayRevenue, getYesterdayRevenue, getDashboardAlerts } from '@/lib/supabase/queries'
 import { STUDIOS } from '@/lib/constants'
 import { Loader2 } from 'lucide-react'
 import { timeSlotsToString, getStudioName } from '@/lib/utils'
@@ -12,6 +12,9 @@ export default function DashboardPage() {
   const [todayBookings, setTodayBookings] = useState<BookingWithStudio[]>([])
   const [monthBookings, setMonthBookings] = useState<BookingWithStudio[]>([])
   const [equipmentCount, setEquipmentCount] = useState(0)
+  const [todayRevenue, setTodayRevenue] = useState(0)
+  const [revenueChange, setRevenueChange] = useState<number | null>(null)
+  const [alerts, setAlerts] = useState<{ type: 'warning' | 'info' | 'error'; title: string; description: string }[]>([])
   const [loading, setLoading] = useState(true)
 
   // 날짜 문자열은 한 번만 계산
@@ -27,14 +30,29 @@ export default function DashboardPage() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      const [todayData, monthData, equipStats] = await Promise.all([
+      const [todayData, monthData, equipStats, todayRev, yesterdayRev, alertsData] = await Promise.all([
         getBookingsByDate(todayStr),
         getBookingsByDateRange(monthStart, monthEnd),
         getEquipmentStats(),
+        getTodayRevenue(),
+        getYesterdayRevenue(),
+        getDashboardAlerts(),
       ])
       setTodayBookings(todayData)
       setMonthBookings(monthData)
       setEquipmentCount(equipStats.equipmentCount)
+      setTodayRevenue(todayRev)
+      setAlerts(alertsData)
+
+      // 전일 대비 증감률 계산
+      if (yesterdayRev > 0) {
+        const change = ((todayRev - yesterdayRev) / yesterdayRev) * 100
+        setRevenueChange(Math.round(change))
+      } else if (todayRev > 0) {
+        setRevenueChange(100) // 어제 0원, 오늘 매출 있으면 +100%
+      } else {
+        setRevenueChange(null) // 둘 다 0원
+      }
     } catch (err) {
       console.error('Failed to load dashboard data:', err)
     } finally {
@@ -105,14 +123,18 @@ export default function DashboardPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
                   </svg>
                 </div>
-                <span className="status-badge px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded-full flex items-center gap-1">
-                  <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
-                  </svg>
-                  12%
-                </span>
+                {revenueChange !== null && (
+                  <span className={`status-badge px-2 py-1 text-xs rounded-full flex items-center gap-1 ${
+                    revenueChange >= 0 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-rose-500/20 text-rose-400'
+                  }`}>
+                    <svg className={`w-3 h-3 ${revenueChange < 0 ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 10l7-7m0 0l7 7m-7-7v18"/>
+                    </svg>
+                    {revenueChange >= 0 ? '+' : ''}{revenueChange}%
+                  </span>
+                )}
               </div>
-              <p className="text-2xl lg:text-3xl font-bold mb-1">₩1,240,000</p>
+              <p className="text-2xl lg:text-3xl font-bold mb-1">₩{todayRevenue.toLocaleString()}</p>
               <p className="text-sm text-white/40">오늘의 매출</p>
             </div>
 
@@ -313,30 +335,26 @@ export default function DashboardPage() {
               <div className="glass-card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">알림</h2>
-                  <span className="w-5 h-5 rounded-full bg-rose-500 text-xs flex items-center justify-center">3</span>
+                  {alerts.length > 0 && alerts[0].type !== 'info' && (
+                    <span className="w-5 h-5 rounded-full bg-rose-500 text-xs flex items-center justify-center">{alerts.length}</span>
+                  )}
                 </div>
                 <div className="space-y-3">
-                  <div className="notification-item notification-rose">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="w-2 h-2 rounded-full bg-rose-500" />
-                      <span className="text-sm font-medium">장비 점검 필요</span>
-                    </div>
-                    <p className="text-xs text-white/40 pl-4">Sony A7S III 배터리 교체 필요</p>
-                  </div>
-                  <div className="notification-item notification-amber">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="w-2 h-2 rounded-full bg-amber-500" />
-                      <span className="text-sm font-medium">새 예약 요청</span>
-                    </div>
-                    <p className="text-xs text-white/40 pl-4">내일 09:00 메인 스튜디오 예약 대기</p>
-                  </div>
-                  <div className="notification-item notification-cyan">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="w-2 h-2 rounded-full bg-cyan-500" />
-                      <span className="text-sm font-medium">정산 완료</span>
-                    </div>
-                    <p className="text-xs text-white/40 pl-4">12월 정산 완료 (₩8,420,000)</p>
-                  </div>
+                  {alerts.map((alert, idx) => {
+                    const colorMap = { error: 'rose', warning: 'amber', info: 'cyan' } as const
+                    const bgColorMap = { error: 'bg-rose-500', warning: 'bg-amber-500', info: 'bg-cyan-500' } as const
+                    const color = colorMap[alert.type]
+                    const bgColor = bgColorMap[alert.type]
+                    return (
+                      <div key={idx} className={`notification-item notification-${color}`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`w-2 h-2 rounded-full ${bgColor}`} />
+                          <span className="text-sm font-medium">{alert.title}</span>
+                        </div>
+                        <p className="text-xs text-white/40 pl-4">{alert.description}</p>
+                      </div>
+                    )
+                  })}
                 </div>
               </div>
 
