@@ -28,11 +28,16 @@ async function sendPushNotification(title: string, body: string, url?: string) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
       (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
 
-    await fetch(`${baseUrl}/api/push/send`, {
+    console.log('[Webhook] 푸시 발송 시도:', baseUrl, { title, body, url })
+
+    const response = await fetch(`${baseUrl}/api/push/send`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ title, body, url: url || '/bookings' }),
     })
+
+    const result = await response.json()
+    console.log('[Webhook] 푸시 발송 결과:', response.status, result)
   } catch (error) {
     console.error('[Webhook] 푸시 알림 발송 실패:', error)
   }
