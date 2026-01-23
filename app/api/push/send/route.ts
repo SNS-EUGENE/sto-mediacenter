@@ -53,15 +53,19 @@ export async function POST(request: NextRequest) {
           },
         }
 
-        const payload = JSON.stringify({
+        const data = {
           title: title || '새 예약 알림',
           body: body || '새로운 예약이 등록되었습니다.',
           url: url || '/bookings',
           tag: `booking-${Date.now()}`,
-        })
+        }
 
-        // UTF-8 인코딩을 명시적으로 지정
-        return webpush.sendNotification(pushSubscription, Buffer.from(payload, 'utf-8'))
+        // Base64 인코딩으로 한글 깨짐 방지
+        const jsonStr = JSON.stringify(data)
+        const base64Payload = Buffer.from(jsonStr, 'utf-8').toString('base64')
+        const payload = JSON.stringify({ encoded: base64Payload })
+
+        return webpush.sendNotification(pushSubscription, payload)
       })
     )
 

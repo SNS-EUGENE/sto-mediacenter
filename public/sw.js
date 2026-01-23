@@ -22,14 +22,24 @@ self.addEventListener('push', (event) => {
       url: '/bookings',
     }
 
-    if (event.data) {
+      if (event.data) {
       try {
-        // ArrayBuffer를 UTF-8 문자열로 디코딩
-        const buffer = await event.data.arrayBuffer()
-        const decoder = new TextDecoder('utf-8')
-        const text = decoder.decode(buffer)
-        const parsed = JSON.parse(text)
-        data = { ...data, ...parsed }
+        const rawData = event.data.json()
+
+        // Base64 인코딩된 데이터인 경우 디코딩
+        if (rawData.encoded) {
+          const decoded = atob(rawData.encoded)
+          // UTF-8 바이트를 문자열로 변환
+          const bytes = new Uint8Array(decoded.length)
+          for (let i = 0; i < decoded.length; i++) {
+            bytes[i] = decoded.charCodeAt(i)
+          }
+          const text = new TextDecoder('utf-8').decode(bytes)
+          const parsed = JSON.parse(text)
+          data = { ...data, ...parsed }
+        } else {
+          data = { ...data, ...rawData }
+        }
       } catch (e) {
         console.error('[SW] Parse error:', e)
         // 파싱 실패 시 기본값 사용
