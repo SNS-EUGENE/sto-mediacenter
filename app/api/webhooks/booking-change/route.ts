@@ -142,13 +142,13 @@ export async function POST(request: NextRequest) {
       })
     }
 
-    // UPDATE: 상태 변경 감지
+    // UPDATE: 변경 감지
     if (payload.type === 'UPDATE' && payload.record && payload.old_record) {
       const newRecord = payload.record
       const oldRecord = payload.old_record
       const studioName = getStudioName(newRecord.studio_id)
 
-      // 상태가 변경된 경우만 알림
+      // 상태가 변경된 경우
       if (newRecord.status !== oldRecord.status) {
         console.log('[Webhook] 상태 변경:', oldRecord.status, '→', newRecord.status)
 
@@ -173,8 +173,17 @@ export async function POST(request: NextRequest) {
         })
       }
 
+      // 상태 외 다른 필드가 변경된 경우
+      console.log('[Webhook] 예약 수정:', newRecord.applicant_name, studioName)
+
+      await sendPushNotification(
+        '예약 수정',
+        `${newRecord.applicant_name}님의 ${studioName} 예약이 수정되었습니다. (${newRecord.rental_date})`
+      )
+
       return NextResponse.json({
-        message: 'No status change detected',
+        success: true,
+        action: 'booking_updated_notification',
         booking: newRecord.id
       })
     }
