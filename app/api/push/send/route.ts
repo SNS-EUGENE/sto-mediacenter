@@ -60,16 +60,8 @@ export async function POST(request: NextRequest) {
           tag: `booking-${Date.now()}`,
         }
 
-        // 한글을 unicode escape로 변환 (모바일 호환성)
-        const escapeUnicode = (str: string) => {
-          return str.replace(/[\u0080-\uFFFF]/g, (char) => {
-            return '\\u' + ('0000' + char.charCodeAt(0).toString(16)).slice(-4)
-          })
-        }
-
-        // JSON 문자열 생성 후 한글만 escape
-        const jsonStr = JSON.stringify(data)
-        const payload = escapeUnicode(jsonStr)
+        // UTF-8 Buffer로 전송 (한글 깨짐 방지)
+        const payload = Buffer.from(JSON.stringify(data), 'utf-8')
 
         return webpush.sendNotification(pushSubscription, payload)
       })
