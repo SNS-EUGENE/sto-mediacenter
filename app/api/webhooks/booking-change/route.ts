@@ -79,8 +79,11 @@ export async function POST(request: NextRequest) {
     const webhookSecret = process.env.SUPABASE_WEBHOOK_SECRET
     const authHeader = request.headers.get('authorization')
 
+    console.log('[Webhook] 받은 Authorization:', authHeader)
+    console.log('[Webhook] 예상 Authorization:', webhookSecret ? `Bearer ${webhookSecret}` : '(설정안됨)')
+
     if (webhookSecret && authHeader !== `Bearer ${webhookSecret}`) {
-      console.warn('[Webhook] 인증 실패')
+      console.warn('[Webhook] 인증 실패 - 불일치')
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
     }
 
