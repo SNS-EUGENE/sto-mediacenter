@@ -60,7 +60,8 @@ export async function POST(request: NextRequest) {
           tag: `booking-${Date.now()}`,
         })
 
-        return webpush.sendNotification(pushSubscription, payload)
+        // UTF-8 인코딩을 명시적으로 지정
+        return webpush.sendNotification(pushSubscription, Buffer.from(payload, 'utf-8'))
       })
     )
 
