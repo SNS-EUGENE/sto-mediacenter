@@ -16,18 +16,23 @@ self.addEventListener('push', (event) => {
   console.log('[SW] Push received:', event)
 
   const showNotification = async () => {
+    console.log('[SW] showNotification called')
+
     let data = {
       title: '새 예약 알림',
       body: '새로운 예약이 등록되었습니다.',
       url: '/bookings',
     }
 
-      if (event.data) {
+    if (event.data) {
+      console.log('[SW] event.data exists')
       try {
         const rawData = event.data.json()
+        console.log('[SW] rawData:', rawData)
 
         // Base64 인코딩된 데이터인 경우 디코딩
         if (rawData.encoded) {
+          console.log('[SW] decoding base64...')
           const decoded = atob(rawData.encoded)
           // UTF-8 바이트를 문자열로 변환
           const bytes = new Uint8Array(decoded.length)
@@ -35,6 +40,7 @@ self.addEventListener('push', (event) => {
             bytes[i] = decoded.charCodeAt(i)
           }
           const text = new TextDecoder('utf-8').decode(bytes)
+          console.log('[SW] decoded text:', text)
           const parsed = JSON.parse(text)
           data = { ...data, ...parsed }
         } else {
@@ -45,6 +51,8 @@ self.addEventListener('push', (event) => {
         // 파싱 실패 시 기본값 사용
       }
     }
+
+    console.log('[SW] Final data:', data)
 
     const options = {
       body: data.body,
@@ -59,6 +67,7 @@ self.addEventListener('push', (event) => {
       ],
     }
 
+    console.log('[SW] Showing notification...')
     return self.registration.showNotification(data.title, options)
   }
 
