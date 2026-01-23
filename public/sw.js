@@ -30,28 +30,9 @@ self.addEventListener('push', (event) => {
         const rawData = event.data.json()
         console.log('[SW] rawData:', rawData)
 
-        // 유니코드 이스케이프된 데이터인 경우
-        if (rawData.escaped) {
-          console.log('[SW] parsing escaped unicode...')
-          // JSON.parse가 \uXXXX를 자동으로 디코딩함
-          const parsed = JSON.parse(rawData.escaped)
-          console.log('[SW] parsed:', parsed)
-          data = { ...data, ...parsed }
-        } else if (rawData.encoded) {
-          // 이전 Base64 방식 (fallback)
-          console.log('[SW] decoding base64...')
-          const decoded = atob(rawData.encoded)
-          const bytes = new Uint8Array(decoded.length)
-          for (let i = 0; i < decoded.length; i++) {
-            bytes[i] = decoded.charCodeAt(i)
-          }
-          const text = new TextDecoder('utf-8').decode(bytes)
-          console.log('[SW] decoded text:', text)
-          const parsed = JSON.parse(text)
-          data = { ...data, ...parsed }
-        } else {
-          data = { ...data, ...rawData }
-        }
+        // 직접 데이터 사용
+        console.log('[SW] using rawData directly')
+        data = { ...data, ...rawData }
       } catch (e) {
         console.error('[SW] Parse error:', e)
         // 파싱 실패 시 기본값 사용

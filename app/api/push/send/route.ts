@@ -60,14 +60,8 @@ export async function POST(request: NextRequest) {
           tag: `booking-${Date.now()}`,
         }
 
-        // 한글을 유니코드 이스케이프로 변환 (ASCII-safe)
-        const jsonStr = JSON.stringify(data)
-        // \uXXXX 형식으로 변환하여 ASCII만 사용
-        const asciiSafe = jsonStr.replace(/[\u0080-\uffff]/g, (char) => {
-          return '\\u' + ('0000' + char.charCodeAt(0).toString(16)).slice(-4)
-        })
-
-        const payload = JSON.stringify({ escaped: asciiSafe })
+        // 직접 JSON으로 전송 (web-push가 UTF-8 처리함)
+        const payload = JSON.stringify(data)
 
         return webpush.sendNotification(pushSubscription, payload)
       })
