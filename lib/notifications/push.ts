@@ -104,7 +104,16 @@ export async function isPushSubscribed(userId: string): Promise<boolean> {
   try {
     if (!('serviceWorker' in navigator)) return false
 
-    const registration = await navigator.serviceWorker.ready
+    // Service Worker ready를 타임아웃과 함께 대기 (3초)
+    const registration = await Promise.race([
+      navigator.serviceWorker.ready,
+      new Promise<null>((_, reject) =>
+        setTimeout(() => reject(new Error('SW timeout')), 3000)
+      ),
+    ]) as ServiceWorkerRegistration | null
+
+    if (!registration) return false
+
     const subscription = await registration.pushManager.getSubscription()
 
     if (!subscription) return false
