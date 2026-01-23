@@ -15,36 +15,44 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('push', (event) => {
   console.log('[SW] Push received:', event)
 
-  let data = {
-    title: '새 예약 알림',
-    body: '새로운 예약이 등록되었습니다.',
-    url: '/bookings',
-  }
-
-  if (event.data) {
-    try {
-      data = { ...data, ...event.data.json() }
-    } catch (e) {
-      data.body = event.data.text()
+  const showNotification = async () => {
+    let data = {
+      title: '새 예약 알림',
+      body: '새로운 예약이 등록되었습니다.',
+      url: '/bookings',
     }
+
+    if (event.data) {
+      try {
+        // ArrayBuffer를 UTF-8 문자열로 디코딩
+        const buffer = await event.data.arrayBuffer()
+        const decoder = new TextDecoder('utf-8')
+        const text = decoder.decode(buffer)
+        const parsed = JSON.parse(text)
+        data = { ...data, ...parsed }
+      } catch (e) {
+        console.error('[SW] Parse error:', e)
+        // 파싱 실패 시 기본값 사용
+      }
+    }
+
+    const options = {
+      body: data.body,
+      icon: '/icons/icon-192x192.png',
+      badge: '/icons/icon-72x72.png',
+      tag: data.tag || 'booking-notification',
+      data: { url: data.url },
+      vibrate: [200, 100, 200],
+      actions: [
+        { action: 'view', title: '확인하기' },
+        { action: 'dismiss', title: '닫기' },
+      ],
+    }
+
+    return self.registration.showNotification(data.title, options)
   }
 
-  const options = {
-    body: data.body,
-    icon: '/icons/icon-192x192.png',
-    badge: '/icons/icon-72x72.png',
-    tag: data.tag || 'booking-notification',
-    data: { url: data.url },
-    vibrate: [200, 100, 200],
-    actions: [
-      { action: 'view', title: '확인하기' },
-      { action: 'dismiss', title: '닫기' },
-    ],
-  }
-
-  event.waitUntil(
-    self.registration.showNotification(data.title, options)
-  )
+  event.waitUntil(showNotification())
 })
 
 // 알림 클릭 핸들러
