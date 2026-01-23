@@ -89,6 +89,7 @@ export async function POST(request: NextRequest) {
 
     const payload: WebhookPayload = await request.json()
     console.log('[Webhook] 수신:', payload.type, payload.table)
+    console.log('[Webhook] record:', JSON.stringify(payload.record))
 
     // bookings 테이블만 처리
     if (payload.table !== 'bookings') {
