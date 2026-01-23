@@ -60,10 +60,14 @@ export async function POST(request: NextRequest) {
           tag: `booking-${Date.now()}`,
         }
 
-        // Base64 인코딩으로 한글 깨짐 방지
+        // 한글을 유니코드 이스케이프로 변환 (ASCII-safe)
         const jsonStr = JSON.stringify(data)
-        const base64Payload = Buffer.from(jsonStr, 'utf-8').toString('base64')
-        const payload = JSON.stringify({ encoded: base64Payload })
+        // \uXXXX 형식으로 변환하여 ASCII만 사용
+        const asciiSafe = jsonStr.replace(/[\u0080-\uffff]/g, (char) => {
+          return '\\u' + ('0000' + char.charCodeAt(0).toString(16)).slice(-4)
+        })
+
+        const payload = JSON.stringify({ escaped: asciiSafe })
 
         return webpush.sendNotification(pushSubscription, payload)
       })

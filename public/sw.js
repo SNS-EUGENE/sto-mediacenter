@@ -30,11 +30,17 @@ self.addEventListener('push', (event) => {
         const rawData = event.data.json()
         console.log('[SW] rawData:', rawData)
 
-        // Base64 인코딩된 데이터인 경우 디코딩
-        if (rawData.encoded) {
+        // 유니코드 이스케이프된 데이터인 경우
+        if (rawData.escaped) {
+          console.log('[SW] parsing escaped unicode...')
+          // JSON.parse가 \uXXXX를 자동으로 디코딩함
+          const parsed = JSON.parse(rawData.escaped)
+          console.log('[SW] parsed:', parsed)
+          data = { ...data, ...parsed }
+        } else if (rawData.encoded) {
+          // 이전 Base64 방식 (fallback)
           console.log('[SW] decoding base64...')
           const decoded = atob(rawData.encoded)
-          // UTF-8 바이트를 문자열로 변환
           const bytes = new Uint8Array(decoded.length)
           for (let i = 0; i < decoded.length; i++) {
             bytes[i] = decoded.charCodeAt(i)
