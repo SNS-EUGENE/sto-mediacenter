@@ -13,7 +13,7 @@ interface WebhookPayload {
 
 interface BookingRecord {
   id: string
-  facility_name: string
+  studio_id: number
   rental_date: string
   applicant_name: string
   status: string
@@ -22,11 +22,24 @@ interface BookingRecord {
   updated_at: string
 }
 
+// 스튜디오 ID → 이름 매핑
+const studioNames: Record<number, string> = {
+  1: '스튜디오 A',
+  2: '스튜디오 B',
+  3: '스튜디오 C',
+  4: '편집실 1',
+  5: '편집실 2',
+}
+
+function getStudioName(studioId: number): string {
+  return studioNames[studioId] || `스튜디오 ${studioId}`
+}
+
 // 푸시 알림 발송
 async function sendPushNotification(title: string, body: string, url?: string) {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    // 프로덕션 URL 고정 (VERCEL_URL은 프리뷰 URL이라 사용하면 안됨)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sto-mediacenter.vercel.app'
 
     console.log('[Webhook] 푸시 발송 시도:', baseUrl, { title, body, url })
 
@@ -50,15 +63,14 @@ async function sendEmailNotification(
   oldStatus?: string
 ) {
   try {
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL ||
-      (process.env.VERCEL_URL ? `https://${process.env.VERCEL_URL}` : 'http://localhost:3000')
+    const studioName = getStudioName(booking.studio_id)
 
     if (type === 'new') {
       // 새 예약 이메일은 lib/email/send.ts의 sendNewBookingEmail 사용
       const { sendNewBookingEmail } = await import('@/lib/email/send')
       await sendNewBookingEmail({
         applicantName: booking.applicant_name,
-        facilityName: booking.facility_name,
+        facilityName: studioName,
         rentalDate: booking.rental_date,
       })
     } else if (type === 'status_change' && oldStatus) {
@@ -66,7 +78,7 @@ async function sendEmailNotification(
       await sendStatusChangeEmail(
         {
           applicantName: booking.applicant_name,
-          facilityName: booking.facility_name,
+          facilityName: studioName,
           rentalDate: booking.rental_date,
         },
         oldStatus,
@@ -111,12 +123,13 @@ export async function POST(request: NextRequest) {
     // INSERT: 새 예약
     if (payload.type === 'INSERT' && payload.record) {
       const booking = payload.record
-      console.log('[Webhook] 새 예약:', booking.applicant_name, booking.facility_name)
+      const studioName = getStudioName(booking.studio_id)
+      console.log('[Webhook] 새 예약:', booking.applicant_name, studioName)
 
       // 푸시 알림
       await sendPushNotification(
         '새 예약 알림',
-        `${booking.applicant_name}님이 ${booking.facility_name}을(를) 예약했습니다. (${booking.rental_date})`
+        `${booking.applicant_name}님이 ${studioName}을(를) 예약했습니다. (${booking.rental_date})`
       )
 
       // 이메일 알림
@@ -133,6 +146,7 @@ export async function POST(request: NextRequest) {
     if (payload.type === 'UPDATE' && payload.record && payload.old_record) {
       const newRecord = payload.record
       const oldRecord = payload.old_record
+      const studioName = getStudioName(newRecord.studio_id)
 
       // 상태가 변경된 경우만 알림
       if (newRecord.status !== oldRecord.status) {
@@ -144,7 +158,7 @@ export async function POST(request: NextRequest) {
         // 푸시 알림
         await sendPushNotification(
           '예약 상태 변경',
-          `${newRecord.applicant_name}님의 예약: ${oldStatusLabel} → ${newStatusLabel}`
+          `${newRecord.applicant_name}님의 ${studioName} 예약: ${oldStatusLabel} → ${newStatusLabel}`
         )
 
         // 이메일 알림
