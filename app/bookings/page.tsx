@@ -11,7 +11,7 @@ import ConfirmModal from '@/components/ui/ConfirmModal'
 import ExcelUploadModal from '@/components/ui/ExcelUploadModal'
 import { getBookings, createBooking, updateBooking, deleteBooking, checkBookingConflict } from '@/lib/supabase/queries'
 import { STUDIOS, BOOKING_STATUS_LABELS } from '@/lib/constants'
-import { Search, ChevronLeft, ChevronRight, ChevronDown, Plus, Edit2, Trash2, Loader2, FileSpreadsheet } from 'lucide-react'
+import { Search, ChevronLeft, ChevronRight, ChevronDown, Plus, Edit2, Trash2, Loader2, FileSpreadsheet, ClipboardCheck, RefreshCw } from 'lucide-react'
 import { cn, timeSlotsToString } from '@/lib/utils'
 import { getComputedStatus } from '@/lib/utils/bookingStatus'
 import type { BookingWithStudio, BookingInsert, Booking } from '@/types/supabase'
@@ -67,6 +67,15 @@ export default function BookingsPage() {
   // 필터나 페이지 변경 시 데이터 다시 로드
   useEffect(() => {
     loadBookings()
+  }, [loadBookings])
+
+  // 창 포커스 시 데이터 새로고침 (만족도조사 상태 등 반영)
+  useEffect(() => {
+    const handleFocus = () => {
+      loadBookings()
+    }
+    window.addEventListener('focus', handleFocus)
+    return () => window.removeEventListener('focus', handleFocus)
   }, [loadBookings])
 
   // 페이지네이션
@@ -178,6 +187,14 @@ export default function BookingsPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={loadBookings}
+                disabled={loading}
+                className="flex items-center gap-2 px-3 py-2 bg-white/5 hover:bg-white/10 text-gray-400 hover:text-white text-sm font-medium rounded-xl transition-colors disabled:opacity-50"
+                title="새로고침"
+              >
+                <RefreshCw className={cn('w-4 h-4', loading && 'animate-spin')} />
+              </button>
+              <button
                 onClick={() => setIsExcelModalOpen(true)}
                 className="flex items-center gap-2 px-4 py-2 bg-green-600 hover:bg-green-700 text-white text-sm font-medium rounded-xl transition-colors"
               >
@@ -261,13 +278,14 @@ export default function BookingsPage() {
         <GlassCard className="flex-1 min-h-0 flex flex-col overflow-hidden p-0">
           {/* Table Header */}
           <div className="flex-shrink-0 border-b border-white/10 bg-white/[0.02]">
-            <div className="hidden lg:grid grid-cols-[1fr_100px_100px_120px_1fr_100px_50px] gap-4 px-4 py-3">
+            <div className="hidden lg:grid grid-cols-[1fr_100px_100px_120px_1fr_100px_90px_50px] gap-4 px-4 py-3">
               <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">예약일</span>
               <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">시간</span>
               <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">스튜디오</span>
               <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">신청자</span>
               <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">행사명</span>
               <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">상태</span>
+              <span className="text-xs font-semibold text-white/70 uppercase tracking-wider">만족도조사</span>
               <span></span>
             </div>
           </div>
@@ -304,7 +322,7 @@ export default function BookingsPage() {
                     <div
                       onClick={() => toggleExpand(booking.id)}
                       className={cn(
-                        'grid grid-cols-[1fr_100px_100px_120px_1fr_100px_50px] gap-4 px-4 py-3 cursor-pointer transition-colors',
+                        'grid grid-cols-[1fr_100px_100px_120px_1fr_100px_90px_50px] gap-4 px-4 py-3 cursor-pointer transition-colors',
                         'hover:bg-white/[0.03]',
                         expandedId === booking.id && 'bg-white/[0.03]'
                       )}
@@ -315,6 +333,18 @@ export default function BookingsPage() {
                       <span className="text-sm text-white truncate">{booking.applicant_name}</span>
                       <span className="text-sm text-gray-400 truncate">{booking.event_name || '-'}</span>
                       <div><StatusBadge status={getComputedStatus(booking)} /></div>
+                      <div>
+                        {booking.survey && booking.survey.length > 0 && booking.survey[0].submitted_at ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-400 bg-green-500/10 rounded-full">
+                            <ClipboardCheck className="w-3 h-3" />
+                            설문 완료
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-400 bg-gray-500/10 rounded-full">
+                            설문 전
+                          </span>
+                        )}
+                      </div>
                       <div className="flex items-center justify-center">
                         <ChevronDown className={cn(
                           'w-4 h-4 text-gray-500 transition-transform',
@@ -460,6 +490,27 @@ export default function BookingsPage() {
                           )}
                         </div>
 
+                        {/* 만족도조사 정보 */}
+                        <div className="py-4 border-t border-white/5">
+                          <div className="flex items-center gap-2 mb-3">
+                            <ClipboardCheck className="w-4 h-4 text-purple-400" />
+                            <p className="text-sm font-medium text-white">만족도조사</p>
+                          </div>
+                          {booking.survey && booking.survey.length > 0 && booking.survey[0].submitted_at ? (
+                            <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                              <p className="text-sm text-green-400">
+                                설문 완료 · {new Date(booking.survey[0].submitted_at).toLocaleDateString('ko-KR')}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="p-3 bg-gray-500/10 border border-gray-500/20 rounded-lg">
+                              <p className="text-sm text-gray-400">
+                                아직 설문에 응하지 않았습니다.
+                              </p>
+                            </div>
+                          )}
+                        </div>
+
                         <div className="flex gap-2 pt-3 border-t border-white/5">
                           <button
                             onClick={(e) => {
@@ -516,8 +567,22 @@ export default function BookingsPage() {
                           )} />
                         </div>
                       </div>
-                      <p className="text-sm text-white">{booking.applicant_name}</p>
-                      <p className="text-xs text-gray-500 truncate">{booking.event_name || '-'}</p>
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <p className="text-sm text-white">{booking.applicant_name}</p>
+                          <p className="text-xs text-gray-500 truncate">{booking.event_name || '-'}</p>
+                        </div>
+                        {booking.survey && booking.survey.length > 0 && booking.survey[0].submitted_at ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-green-400 bg-green-500/10 rounded-full">
+                            <ClipboardCheck className="w-3 h-3" />
+                            완료
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 text-xs font-medium text-gray-400 bg-gray-500/10 rounded-full">
+                            설문 전
+                          </span>
+                        )}
+                      </div>
                     </div>
 
                     {/* Mobile Expanded Detail */}
@@ -606,6 +671,27 @@ export default function BookingsPage() {
                         {/* 등록일 */}
                         <div className="py-3 border-t border-white/5">
                           <p className="text-xs text-gray-500">등록일: {booking.created_at?.split('T')[0] || '-'}</p>
+                        </div>
+
+                        {/* 만족도조사 정보 */}
+                        <div className="py-3 border-t border-white/5">
+                          <div className="flex items-center gap-2 mb-2">
+                            <ClipboardCheck className="w-4 h-4 text-purple-400" />
+                            <p className="text-sm font-medium text-white">만족도조사</p>
+                          </div>
+                          {booking.survey && booking.survey.length > 0 && booking.survey[0].submitted_at ? (
+                            <div className="p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+                              <p className="text-xs text-green-400">
+                                설문 완료 · {new Date(booking.survey[0].submitted_at).toLocaleDateString('ko-KR')}
+                              </p>
+                            </div>
+                          ) : (
+                            <div className="p-2 bg-gray-500/10 border border-gray-500/20 rounded-lg">
+                              <p className="text-xs text-gray-400">
+                                아직 설문에 응하지 않았습니다.
+                              </p>
+                            </div>
+                          )}
                         </div>
 
                         <div className="flex gap-2 pt-3 border-t border-white/5">

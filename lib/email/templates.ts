@@ -154,6 +154,67 @@ export function statusChangeEmail(
 `
 }
 
+// 만족도 조사 요청 이메일
+export function surveyRequestEmail(
+  booking: BookingInfo,
+  surveyUrl: string,
+  dashboardUrl: string
+): string {
+  return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <style>${baseStyles}</style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <h1 style="margin: 0; font-size: 24px;">📝 만족도 조사 요청</h1>
+      <p style="margin: 8px 0 0 0; opacity: 0.9;">종로 스튜디오 FMS</p>
+    </div>
+    <div class="content">
+      <p>${booking.applicantName}님, 안녕하세요!</p>
+      <p>종로 스튜디오를 이용해 주셔서 감사합니다.<br>
+      더 나은 서비스 제공을 위해 간단한 만족도 조사에 참여 부탁드립니다.</p>
+
+      <div style="background: white; padding: 16px; border-radius: 8px; margin: 16px 0;">
+        <div class="info-row">
+          <span class="info-label">스튜디오</span>
+          <span class="info-value">${booking.facilityName}</span>
+        </div>
+        <div class="info-row">
+          <span class="info-label">이용일</span>
+          <span class="info-value">${booking.rentalDate}</span>
+        </div>
+        ${booking.timeSlots ? `
+        <div class="info-row">
+          <span class="info-label">이용시간</span>
+          <span class="info-value">${booking.timeSlots}</span>
+        </div>
+        ` : ''}
+      </div>
+
+      <div style="text-align: center; margin: 24px 0;">
+        <a href="${surveyUrl}" class="button" style="font-size: 16px; padding: 16px 32px;">
+          만족도 조사 참여하기
+        </a>
+      </div>
+
+      <p style="font-size: 12px; color: #6b7280; margin-top: 24px;">
+        * 조사는 약 1-2분 소요됩니다.<br>
+        * 링크는 30일간 유효합니다.
+      </p>
+    </div>
+    <div class="footer">
+      <p>이 메일은 종로 스튜디오 FMS에서 자동 발송되었습니다.</p>
+    </div>
+  </div>
+</body>
+</html>
+`
+}
+
 // 일일 리포트 이메일
 export function dailyReportEmail(
   date: string,

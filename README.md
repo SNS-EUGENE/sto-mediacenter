@@ -15,6 +15,7 @@
 - **대시보드**: 오늘의 예약 현황, 스튜디오 가동률 통계
 - **캘린더 뷰**: 월별/주별 예약 일정 확인
 - **장비 관리**: 스튜디오 장비 대여 및 반납 관리
+- **만족도 조사**: QR 코드 기반 설문, 통계 대시보드, 구글 시트 연동
 - **통계/KPI**: 월별 이용 현황 및 성과 지표 관리
 - **키오스크 모드**: 방문객용 예약 확인 화면
 - **라이브 모니터링**: 실시간 스튜디오 현황 모니터
@@ -57,15 +58,18 @@
 ├── app/                    # Next.js App Router 페이지
 │   ├── api/               # API Routes
 │   │   ├── google/        # Gmail API 연동
-│   │   └── sto/           # STO 연동 API
+│   │   ├── sto/           # STO 연동 API
+│   │   └── survey/        # 만족도 조사 API
 │   ├── bookings/          # 예약 관리 페이지
 │   ├── calendar/          # 캘린더 뷰
 │   ├── equipments/        # 장비 관리
 │   ├── kiosk/             # 키오스크 모드
 │   ├── kpi/               # KPI 관리
 │   ├── live/              # 라이브 모니터링
-│   ├── settings/          # 설정 (STO 로그인)
-│   └── statistics/        # 통계 페이지
+│   ├── settings/          # 설정 (STO 로그인, 구글 시트)
+│   ├── statistics/        # 통계 페이지
+│   ├── survey/            # 설문 응답 페이지 (외부 공개)
+│   └── surveys/           # 만족도 조사 관리 (관리자)
 │
 ├── components/            # React 컴포넌트
 │   ├── dashboard/         # 대시보드 위젯
@@ -77,8 +81,10 @@
 ├── lib/                   # 유틸리티 및 비즈니스 로직
 │   ├── data/              # 데이터 파싱
 │   ├── google/            # Gmail API 클라이언트
+│   ├── google-sheets/     # 구글 시트 연동
 │   ├── sto/               # STO 연동 클라이언트
 │   ├── supabase/          # Supabase 클라이언트
+│   ├── survey/            # 만족도 조사 설정
 │   └── utils/             # 유틸리티 함수
 │
 ├── supabase/              # 데이터베이스 스키마
@@ -152,6 +158,8 @@ Gmail API를 연동하면 STO 로그인 시 이메일 인증 코드를 자동으
 - `equipment_rentals`: 장비 대여 기록
 - `kpi_monthly`: 월별 KPI 데이터
 - `sto_sessions`: STO 세션 정보 (Vercel 배포용)
+- `satisfaction_surveys`: 만족도 조사 응답
+- `settings`: 시스템 설정 (구글 시트 연동 등)
 
 ## 개발 현황
 
@@ -166,9 +174,15 @@ Gmail API를 연동하면 STO 로그인 시 이메일 인증 코드를 자동으
 - [x] KPI 관리
 - [x] 키오스크/라이브 모니터 모드
 - [x] Vercel Cron 설정
+- [x] 만족도 조사 시스템
+  - QR 코드 기반 설문 (`/surveys/today`)
+  - PIN 인증 (전화번호 뒷 4자리)
+  - 2026년 설문 양식 적용
+  - 항목별/전체 만족도 통계
+  - 구글 시트 자동 연동
+- [x] 푸시 알림 (예약 변경 시 Webhook)
 
 ### 예정된 기능
-- [ ] 알림 시스템 (Slack/Discord 연동)
 - [ ] 사용자 권한 관리
 - [ ] 예약 충돌 감지
 - [ ] 리포트 생성 및 내보내기

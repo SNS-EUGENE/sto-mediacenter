@@ -31,7 +31,11 @@ export async function getBookings(
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query: any = supabase
     .from('bookings')
-    .select('*, studio:studios(*)', { count: 'exact' })
+    .select(`
+      *,
+      studio:studios(*),
+      survey:satisfaction_surveys(id, submitted_at)
+    `, { count: 'exact' })
 
   // Apply filters
   if (filters?.studioId) {
@@ -71,8 +75,15 @@ export async function getBookings(
 
   if (error) throw error
 
+  // survey 데이터가 배열로 올 수 있으므로 정규화
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const normalizedData = (data || []).map((booking: any) => ({
+    ...booking,
+    survey: Array.isArray(booking.survey) ? booking.survey : booking.survey ? [booking.survey] : null,
+  }))
+
   return {
-    data: (data || []) as BookingWithStudio[],
+    data: normalizedData as BookingWithStudio[],
     pagination: {
       page,
       pageSize,

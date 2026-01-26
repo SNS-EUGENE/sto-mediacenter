@@ -1,5 +1,5 @@
 // 이메일 발송 유틸리티
-import { newBookingEmail, statusChangeEmail } from './templates'
+import { newBookingEmail, statusChangeEmail, surveyRequestEmail } from './templates'
 
 const getBaseUrl = () => {
   if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
@@ -91,6 +91,33 @@ export async function sendStatusChangeEmail(
   return sendEmail({
     to: adminEmails,
     subject: `[종로 스튜디오] 예약 상태 변경: ${booking.applicantName}님 (${statusLabels[oldStatus] || oldStatus} → ${statusLabels[newStatus] || newStatus})`,
+    html,
+  })
+}
+
+// 만족도 조사 요청 이메일 발송
+export async function sendSurveyRequestEmail(
+  booking: {
+    applicantName: string
+    facilityName: string
+    rentalDate: string
+    timeSlots?: string
+    email: string
+  },
+  surveyToken: string
+): Promise<boolean> {
+  if (!booking.email) {
+    console.log('[Email] 이메일 주소가 없어 만족도 조사 메일을 발송하지 않습니다.')
+    return false
+  }
+
+  const baseUrl = getBaseUrl()
+  const surveyUrl = `${baseUrl}/survey/${surveyToken}`
+  const html = surveyRequestEmail(booking, surveyUrl, baseUrl)
+
+  return sendEmail({
+    to: booking.email,
+    subject: `[종로 스튜디오] ${booking.applicantName}님, 만족도 조사 참여 부탁드립니다`,
     html,
   })
 }

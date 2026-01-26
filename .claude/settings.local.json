@@ -39,7 +39,9 @@
       "Bash(git stash:*)",
       "Bash(git reset:*)",
       "Bash(git filter-branch:*)",
-      "Bash(npm uninstall:*)"
+      "Bash(npm uninstall:*)",
+      "Bash(Remove-Item -Recurse -Force .next -ErrorAction SilentlyContinue)",
+      "Bash(npm i:*)"
     ]
   }
 }

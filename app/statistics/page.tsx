@@ -7,7 +7,7 @@ import Select from '@/components/ui/Select'
 import { getBookingsByDateRange, getLongTermUserCount, getLongTermUsers, type LongTermUser } from '@/lib/supabase/queries'
 import { supabase } from '@/lib/supabase/client'
 import { STUDIOS } from '@/lib/constants'
-import { Calendar, TrendingUp, Clock, Users, Target, Award, Building2, Loader2, Presentation, Film, Gift, Handshake, Download, FileSpreadsheet, FileText, Banknote } from 'lucide-react'
+import { Calendar, TrendingUp, Clock, Users, Target, Award, Building2, Loader2, Presentation, Film, Gift, Handshake, Download, FileSpreadsheet, FileText, Banknote, ChevronDown, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { BookingWithStudio } from '@/types/supabase'
 

@@ -1,0 +1,260 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
+import { extractSheetIdFromUrl, appendSurveyToSheet, ensureSheetHeaders } from '@/lib/google-sheets'
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.SUPABASE_SERVICE_ROLE_KEY!
+)
+
+// 구글 시트 동기화 함수
+async function syncToGoogleSheet(surveyId: string, surveyData: {
+  submittedAt: string
+  studioName: string
+  rentalDate: string
+  applicantName: string
+  organization: string | null
+  overallRating: number
+  categoryRatings: Record<string, number>
+  discoveryChannel: string
+  benefits: string[]
+  comment: string | null
+}) {
+  try {
+    // 설정에서 구글 시트 URL 가져오기
+    const { data: settings } = await supabase
+      .from('settings')
+      .select('value')
+      .eq('key', 'survey_google_sheet_url')
+      .single()
+
+    if (!settings?.value) {
+      console.log('Google Sheet URL not configured, skipping sync')
+      return { synced: false, error: '구글 시트 URL이 설정되지 않았습니다.' }
+    }
+
+    const spreadsheetId = extractSheetIdFromUrl(settings.value)
+    if (!spreadsheetId) {
+      return { synced: false, error: '유효하지 않은 구글 시트 URL입니다.' }
+    }
+
+    // 헤더 확인 및 생성
+    await ensureSheetHeaders(spreadsheetId)
+
+    // 데이터 추가
+    await appendSurveyToSheet(spreadsheetId, surveyData)
+
+    // 동기화 상태 업데이트
+    await supabase
+      .from('satisfaction_surveys')
+      .update({
+        google_sheet_synced: true,
+        google_sheet_synced_at: new Date().toISOString(),
+        google_sheet_sync_error: null,
+      })
+      .eq('id', surveyId)
+
+    return { synced: true }
+  } catch (error: unknown) {
+    const errorMessage = error instanceof Error ? error.message : '알 수 없는 오류'
+    console.error('Google Sheet sync error:', error)
+
+    // 동기화 실패 상태 업데이트
+    await supabase
+      .from('satisfaction_surveys')
+      .update({
+        google_sheet_synced: false,
+        google_sheet_sync_error: errorMessage,
+      })
+      .eq('id', surveyId)
+
+    return { synced: false, error: errorMessage }
+  }
+}
+
+// GET: 토큰으로 조사 조회
+export async function GET(
+  request: NextRequest,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  try {
+    const { token } = await params
+
+    // 조사 조회 (예약 정보 포함)
+    const { data: survey, error } = await supabase
+      .from('satisfaction_surveys')
+      .select(`
+        id,
+        booking_id,
+        submitted_at,
+        expires_at,
+        booking:bookings (
+          applicant_name,
+          organization,
+          rental_date,
+          purpose,
+          studio:studios (
+            name
+          )
+        )
+      `)
+      .eq('token', token)
+      .single()
+
+    if (error || !survey) {
+      return NextResponse.json(
+        { error: '유효하지 않은 조사 링크입니다.' },
+        { status: 404 }
+      )
+    }
+
+    // 만료 체크
+    if (new Date(survey.expires_at) < new Date()) {
+      return NextResponse.json(
+        { error: '만료된 조사 링크입니다.' },
+        { status: 410 }
+      )
+    }
+
+    return NextResponse.json({ survey })
+  } catch (error) {
+    console.error('Survey fetch error:', error)
+    return NextResponse.json(
+      { error: '서버 오류가 발생했습니다.' },
+      { status: 500 }
+    )
+  }
+}
+
+// POST: 조사 제출
+export async function POST(
+  request: NextRequest,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  try {
+    const { token } = await params
+    const body = await request.json()
+
+    const {
+      overall_rating,
+      category_ratings,
+      comment,
+      improvement_request,
+      reuse_intention,
+      nps_score,
+    } = body
+
+    // 조사 존재 여부 및 상태 확인 (예약 정보 포함)
+    const { data: survey, error: fetchError } = await supabase
+      .from('satisfaction_surveys')
+      .select(`
+        id,
+        submitted_at,
+        expires_at,
+        booking:bookings (
+          applicant_name,
+          organization,
+          rental_date,
+          studio:studios (name)
+        )
+      `)
+      .eq('token', token)
+      .single()
+
+    if (fetchError || !survey) {
+      return NextResponse.json(
+        { error: '유효하지 않은 조사 링크입니다.' },
+        { status: 404 }
+      )
+    }
+
+    if (survey.submitted_at) {
+      return NextResponse.json(
+        { error: '이미 제출된 조사입니다.' },
+        { status: 400 }
+      )
+    }
+
+    if (new Date(survey.expires_at) < new Date()) {
+      return NextResponse.json(
+        { error: '만료된 조사 링크입니다.' },
+        { status: 410 }
+      )
+    }
+
+    // 필수 값 검증
+    if (!overall_rating || overall_rating < 1 || overall_rating > 5) {
+      return NextResponse.json(
+        { error: '전체 만족도(1-5)를 선택해주세요.' },
+        { status: 400 }
+      )
+    }
+
+    // 제출 시각
+    const submittedAt = new Date().toISOString()
+
+    // 조사 업데이트
+    const { error: updateError } = await supabase
+      .from('satisfaction_surveys')
+      .update({
+        overall_rating,
+        category_ratings: category_ratings || {},
+        comment: comment || null,
+        improvement_request: improvement_request || null,
+        reuse_intention: reuse_intention || null,
+        nps_score: nps_score >= 0 ? nps_score : null,
+        submitted_at: submittedAt,
+      })
+      .eq('id', survey.id)
+
+    if (updateError) {
+      console.error('Survey update error:', updateError)
+      return NextResponse.json(
+        { error: '제출 중 오류가 발생했습니다.' },
+        { status: 500 }
+      )
+    }
+
+    // 구글 시트 동기화 (백그라운드에서 실행, 실패해도 응답에 영향 없음)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const booking = survey.booking as any
+    if (booking) {
+      // improvement_request에서 discovery_channel, benefits 추출
+      let discoveryChannel = ''
+      let benefits: string[] = []
+      try {
+        const additionalData = JSON.parse(improvement_request || '{}')
+        discoveryChannel = additionalData.discovery_channel || ''
+        benefits = additionalData.benefits || []
+      } catch {
+        // JSON 파싱 실패 시 무시
+      }
+
+      syncToGoogleSheet(survey.id, {
+        submittedAt,
+        studioName: booking.studio?.name || '',
+        rentalDate: booking.rental_date,
+        applicantName: booking.applicant_name,
+        organization: booking.organization,
+        overallRating: overall_rating,
+        categoryRatings: category_ratings || {},
+        discoveryChannel,
+        benefits,
+        comment: comment || null,
+      }).catch(err => {
+        console.error('Background Google Sheet sync failed:', err)
+      })
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: '만족도 조사가 제출되었습니다.',
+    })
+  } catch (error) {
+    console.error('Survey submit error:', error)
+    return NextResponse.json(
+      { error: '서버 오류가 발생했습니다.' },
+      { status: 500 }
+    )
+  }
+}

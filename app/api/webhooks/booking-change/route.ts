@@ -16,6 +16,7 @@ interface BookingRecord {
   studio_id: number
   rental_date: string
   applicant_name: string
+  email?: string
   status: string
   time_slots?: number[]
   sto_reqst_sn?: string
@@ -99,6 +100,47 @@ async function sendEmailNotification(
   }
 }
 
+// 만족도 조사 이메일 발송
+async function sendSurveyEmail(booking: BookingRecord, studioName: string) {
+  try {
+    // Supabase에서 해당 예약의 survey token 조회
+    const { createClient } = await import('@supabase/supabase-js')
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!
+    )
+
+    const { data: survey, error } = await supabase
+      .from('satisfaction_surveys')
+      .select('token')
+      .eq('booking_id', booking.id)
+      .single()
+
+    if (error || !survey) {
+      console.log('[Webhook] 만족도 조사가 아직 생성되지 않음:', booking.id)
+      return
+    }
+
+    const { sendSurveyRequestEmail } = await import('@/lib/email/send')
+    const timeRange = formatTimeSlots(booking.time_slots)
+
+    await sendSurveyRequestEmail(
+      {
+        applicantName: booking.applicant_name,
+        facilityName: studioName,
+        rentalDate: booking.rental_date,
+        timeSlots: timeRange,
+        email: booking.email!,
+      },
+      survey.token
+    )
+
+    console.log('[Webhook] 만족도 조사 이메일 발송 완료:', booking.email)
+  } catch (error) {
+    console.error('[Webhook] 만족도 조사 이메일 발송 실패:', error)
+  }
+}
+
 export async function POST(request: NextRequest) {
   try {
     // Webhook 시크릿 검증 (선택사항이지만 권장)
@@ -173,6 +215,11 @@ export async function POST(request: NextRequest) {
 
         // 이메일 알림
         await sendEmailNotification('status_change', newRecord, oldRecord.status)
+
+        // CONFIRMED 상태로 변경 시 만족도 조사 이메일 발송
+        if (newRecord.status === 'CONFIRMED' && newRecord.email) {
+          await sendSurveyEmail(newRecord, studioName)
+        }
 
         return NextResponse.json({
           success: true,

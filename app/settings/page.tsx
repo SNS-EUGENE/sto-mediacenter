@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
-import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key, Zap, Target, Presentation, Film, Gift, Building2, Users, Handshake, Smartphone } from 'lucide-react'
+import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key, Zap, Target, Presentation, Film, Gift, Building2, Users, Handshake, Smartphone, FileSpreadsheet, HelpCircle, ExternalLink, RefreshCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import PushNotificationToggle from '@/components/notifications/PushNotificationToggle'
 
@@ -73,6 +73,14 @@ export default function SettingsPage() {
     longTermUsers: 2,          // 장기 이용자 확보 (곳)
   })
 
+  // 구글 시트 설정
+  const [googleSheetUrl, setGoogleSheetUrl] = useState('')
+  const [sheetUrlSaving, setSheetUrlSaving] = useState(false)
+  const [sheetUrlResult, setSheetUrlResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [failedSyncCount, setFailedSyncCount] = useState(0)
+  const [isSyncingSheets, setIsSyncingSheets] = useState(false)
+  const [showSheetHelp, setShowSheetHelp] = useState(false)
+
   // STO 세션 상태 확인
   const checkSTOStatus = useCallback(async () => {
     try {
@@ -135,7 +143,79 @@ export default function SettingsPage() {
 
     // STO 상태 확인
     checkSTOStatus()
+
+    // 구글 시트 설정 로드
+    loadGoogleSheetSettings()
   }, [checkSTOStatus])
+
+  // 구글 시트 설정 로드
+  const loadGoogleSheetSettings = async () => {
+    try {
+      const response = await fetch('/api/settings/google-sheet')
+      const data = await response.json()
+      if (data.url) {
+        setGoogleSheetUrl(data.url)
+      }
+      if (data.failedCount !== undefined) {
+        setFailedSyncCount(data.failedCount)
+      }
+    } catch (error) {
+      console.error('구글 시트 설정 로드 실패:', error)
+    }
+  }
+
+  // 구글 시트 URL 저장
+  const handleSaveSheetUrl = async () => {
+    setSheetUrlSaving(true)
+    setSheetUrlResult(null)
+
+    try {
+      const response = await fetch('/api/settings/google-sheet', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: googleSheetUrl }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSheetUrlResult({ success: true, message: '구글 시트 URL이 저장되었습니다.' })
+      } else {
+        setSheetUrlResult({ success: false, message: data.error || '저장 실패' })
+      }
+    } catch {
+      setSheetUrlResult({ success: false, message: '서버 오류가 발생했습니다.' })
+    } finally {
+      setSheetUrlSaving(false)
+    }
+  }
+
+  // 실패한 동기화 재시도
+  const handleRetrySync = async () => {
+    setIsSyncingSheets(true)
+    setSheetUrlResult(null)
+
+    try {
+      const response = await fetch('/api/survey/sync', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSheetUrlResult({ success: true, message: data.message })
+        setFailedSyncCount(data.failed || 0)
+      } else {
+        setSheetUrlResult({ success: false, message: data.error || '동기화 실패' })
+      }
+    } catch {
+      setSheetUrlResult({ success: false, message: '동기화 중 오류가 발생했습니다.' })
+    } finally {
+      setIsSyncingSheets(false)
+    }
+  }
 
   // Keep-alive 주기적 실행 (5분마다)
   useEffect(() => {
@@ -743,6 +823,125 @@ export default function SettingsPage() {
                   className="w-5 h-5 rounded bg-white/10 border-white/20 text-purple-500 focus:ring-purple-500/50"
                 />
               </label>
+            </div>
+          </GlassCard>
+
+          {/* 만족도조사 구글 시트 연동 */}
+          <GlassCard>
+            <div className="flex items-center gap-2 mb-6">
+              <FileSpreadsheet className="w-5 h-5 text-green-400" />
+              <h2 className="text-lg font-semibold text-white">만족도조사 구글 시트 연동</h2>
+              <button
+                onClick={() => setShowSheetHelp(!showSheetHelp)}
+                className="ml-auto p-1.5 rounded-lg hover:bg-white/10 transition-colors"
+                title="도움말"
+              >
+                <HelpCircle className="w-4 h-4 text-gray-400" />
+              </button>
+            </div>
+
+            {/* 도움말 */}
+            {showSheetHelp && (
+              <div className="mb-6 p-4 rounded-xl bg-blue-500/10 border border-blue-500/20">
+                <h4 className="text-sm font-medium text-blue-400 mb-2">설정 방법</h4>
+                <ol className="text-xs text-gray-400 space-y-2">
+                  <li>1. Google Sheets에서 새 스프레드시트를 생성합니다.</li>
+                  <li>2. 스프레드시트의 공유 설정에서 서비스 계정 이메일을 편집자로 추가합니다.</li>
+                  <li>3. 스프레드시트 URL을 아래에 붙여넣기 합니다.</li>
+                  <li className="text-yellow-400">
+                    * 서비스 계정: 환경 변수 GOOGLE_SERVICE_ACCOUNT_KEY에 설정된 계정
+                  </li>
+                </ol>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              {/* URL 입력 */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">구글 시트 URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="url"
+                    value={googleSheetUrl}
+                    onChange={(e) => setGoogleSheetUrl(e.target.value)}
+                    placeholder="https://docs.google.com/spreadsheets/d/..."
+                    className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
+                  />
+                  {googleSheetUrl && (
+                    <a
+                      href={googleSheetUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 px-3 py-3 rounded-xl bg-white/5 border border-white/10 text-gray-400 hover:text-white hover:bg-white/10 transition-colors"
+                      title="시트 열기"
+                    >
+                      <ExternalLink className="w-4 h-4" />
+                    </a>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  * 만족도조사 결과가 자동으로 이 시트에 저장됩니다.
+                </p>
+              </div>
+
+              {/* 결과 메시지 */}
+              {sheetUrlResult && (
+                <div
+                  className={cn(
+                    'flex items-center gap-2 p-3 rounded-lg',
+                    sheetUrlResult.success
+                      ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+                      : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                  )}
+                >
+                  {sheetUrlResult.success ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4" />
+                  )}
+                  <span className="text-sm">{sheetUrlResult.message}</span>
+                </div>
+              )}
+
+              {/* 동기화 실패 건수 */}
+              {failedSyncCount > 0 && (
+                <div className="flex items-center justify-between p-4 rounded-xl bg-yellow-500/10 border border-yellow-500/20">
+                  <div>
+                    <p className="text-sm text-yellow-400">동기화 실패 {failedSyncCount}건</p>
+                    <p className="text-xs text-gray-500">시트 접근 권한을 확인하고 재시도하세요.</p>
+                  </div>
+                  <button
+                    onClick={handleRetrySync}
+                    disabled={isSyncingSheets}
+                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors disabled:opacity-50"
+                  >
+                    {isSyncingSheets ? (
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                    ) : (
+                      <RefreshCcw className="w-4 h-4" />
+                    )}
+                    재시도
+                  </button>
+                </div>
+              )}
+
+              <button
+                onClick={handleSaveSheetUrl}
+                disabled={sheetUrlSaving}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-green-500/20 text-green-400 hover:bg-green-500/30 transition-colors disabled:opacity-50"
+              >
+                {sheetUrlSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    저장 중...
+                  </>
+                ) : (
+                  <>
+                    <FileSpreadsheet className="w-4 h-4" />
+                    구글 시트 URL 저장
+                  </>
+                )}
+              </button>
             </div>
           </GlassCard>
 

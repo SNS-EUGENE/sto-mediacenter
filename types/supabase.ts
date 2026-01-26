@@ -88,6 +88,7 @@ export interface Equipment {
 
 export interface BookingWithStudio extends Booking {
   studio: Studio;
+  survey?: { id: string; submitted_at: string | null }[] | null;
 }
 
 // =============================================
@@ -140,6 +141,66 @@ export type EquipmentInsert = Omit<Equipment, 'id' | 'created_at' | 'updated_at'
 export type BookingUpdate = Partial<Omit<Booking, 'id' | 'created_at' | 'updated_at'>>;
 
 export type EquipmentUpdate = Partial<Omit<Equipment, 'id' | 'created_at' | 'updated_at'>>;
+
+// =============================================
+// Satisfaction Survey Types
+// =============================================
+
+export interface SatisfactionSurvey {
+  id: string;
+  booking_id: string;
+  token: string;
+  submitted_at: string | null;
+  expires_at: string;
+  overall_rating: number | null;
+  category_ratings: Record<string, number> | null;
+  comment: string | null;
+  improvement_request: string | null;
+  reuse_intention: number | null;
+  nps_score: number | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export interface SurveyWithBooking extends SatisfactionSurvey {
+  booking: Booking & { studio: Studio };
+}
+
+export type SurveyInsert = {
+  booking_id: string;
+};
+
+export type SurveyUpdate = {
+  overall_rating?: number;
+  category_ratings?: Record<string, number>;
+  comment?: string;
+  improvement_request?: string;
+  reuse_intention?: number;
+  nps_score?: number;
+  submitted_at?: string;
+};
+
+// 스튜디오별 통계
+export interface SurveyStatsByStudio {
+  studio_id: number;
+  studio_name: string;
+  total_surveys: number;
+  completed_surveys: number;
+  avg_overall_rating: number;
+  avg_reuse_intention: number;
+  avg_nps_score: number;
+  nps: number;
+}
+
+// 월별 통계
+export interface SurveyStatsByMonth {
+  month: string;
+  total_surveys: number;
+  completed_surveys: number;
+  avg_overall_rating: number;
+  avg_nps_score: number;
+  nps: number;
+}
 
 // =============================================
 // Database Schema Type (for Supabase Client)
