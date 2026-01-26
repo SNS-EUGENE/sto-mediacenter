@@ -24,7 +24,7 @@ export function useAuth() {
 }
 
 // 인증이 필요 없는 경로
-const PUBLIC_PATHS = ['/kiosk', '/live', '/login', '/auth/callback']
+const PUBLIC_PATHS = ['/kiosk', '/live', '/login', '/auth/callback', '/surveys/today', '/survey']
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
