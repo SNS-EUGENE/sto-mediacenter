@@ -17,9 +17,18 @@ interface BookingRecord {
   rental_date: string
   applicant_name: string
   status: string
+  time_slots?: number[]
   sto_reqst_sn?: string
   created_at: string
   updated_at: string
+}
+
+// time_slots 배열을 "HH~HH시" 형식으로 변환
+function formatTimeSlots(timeSlots?: number[]): string {
+  if (!timeSlots || timeSlots.length === 0) return ''
+  const start = timeSlots[0]
+  const end = timeSlots[timeSlots.length - 1] + 1
+  return `${String(start).padStart(2, '0')}~${String(end).padStart(2, '0')}시`
 }
 
 // 스튜디오 ID → 이름 매핑
@@ -124,12 +133,13 @@ export async function POST(request: NextRequest) {
     if (payload.type === 'INSERT' && payload.record) {
       const booking = payload.record
       const studioName = getStudioName(booking.studio_id)
+      const timeRange = formatTimeSlots(booking.time_slots)
       console.log('[Webhook] 새 예약:', booking.applicant_name, studioName)
 
-      // 푸시 알림
+      // 푸시 알림: {스튜디오명}에 {신청자명}님의 새로운 예약이 있습니다. (YYYY-MM-DD / HH~HH시)
       await sendPushNotification(
         '새 예약 알림',
-        `${booking.applicant_name}님이 ${studioName}을(를) 예약했습니다. (${booking.rental_date})`
+        `${studioName}에 ${booking.applicant_name}님의 새로운 예약이 있습니다. (${booking.rental_date} / ${timeRange})`
       )
 
       // 이메일 알림
@@ -155,10 +165,10 @@ export async function POST(request: NextRequest) {
         const oldStatusLabel = statusLabels[oldRecord.status] || oldRecord.status
         const newStatusLabel = statusLabels[newRecord.status] || newRecord.status
 
-        // 푸시 알림
+        // 푸시 알림: {스튜디오명}에 {신청자명}님의 예약 상태가 {이전상태} → {새상태}와 같이 변경되었습니다.
         await sendPushNotification(
           '예약 상태 변경',
-          `${newRecord.applicant_name}님의 ${studioName} 예약: ${oldStatusLabel} → ${newStatusLabel}`
+          `${studioName}에 ${newRecord.applicant_name}님의 예약 상태가 ${oldStatusLabel} → ${newStatusLabel}(으)로 변경되었습니다.`
         )
 
         // 이메일 알림
@@ -176,10 +186,28 @@ export async function POST(request: NextRequest) {
       // 상태 외 다른 필드가 변경된 경우
       console.log('[Webhook] 예약 수정:', newRecord.applicant_name, studioName)
 
-      await sendPushNotification(
-        '예약 수정',
-        `${newRecord.applicant_name}님의 ${studioName} 예약이 수정되었습니다. (${newRecord.rental_date})`
-      )
+      // 날짜 변경 확인
+      const dateChanged = newRecord.rental_date !== oldRecord.rental_date
+      // 시간 변경 확인
+      const oldTimeSlots = JSON.stringify(oldRecord.time_slots || [])
+      const newTimeSlots = JSON.stringify(newRecord.time_slots || [])
+      const timeChanged = oldTimeSlots !== newTimeSlots
+
+      let updateMessage: string
+      if (dateChanged) {
+        // 날짜 변경: {스튜디오명}에 {신청자명}님의 예약이 수정되었습니다. (YYYY-MM-DD → YYYY-MM-DD)
+        updateMessage = `${studioName}에 ${newRecord.applicant_name}님의 예약이 수정되었습니다. (${oldRecord.rental_date} → ${newRecord.rental_date})`
+      } else if (timeChanged) {
+        // 시간만 변경: {스튜디오명}에 {신청자명}님의 YYYY-MM-DD일자 예약 시간이 수정되었습니다. (HH~HH시 → HH~HH시)
+        const oldTimeRange = formatTimeSlots(oldRecord.time_slots)
+        const newTimeRange = formatTimeSlots(newRecord.time_slots)
+        updateMessage = `${studioName}에 ${newRecord.applicant_name}님의 ${newRecord.rental_date}일자 예약 시간이 수정되었습니다. (${oldTimeRange} → ${newTimeRange})`
+      } else {
+        // 기타 변경
+        updateMessage = `${studioName}에 ${newRecord.applicant_name}님의 예약이 수정되었습니다.`
+      }
+
+      await sendPushNotification('예약 수정', updateMessage)
 
       return NextResponse.json({
         success: true,
