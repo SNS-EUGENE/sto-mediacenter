@@ -121,12 +121,13 @@ export async function GET(
       )
     }
 
-    // 예약 시작 시간 이전 접근 차단
+    // 예약 시작 시간 이전 접근 차단 (한국 시간 기준)
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const booking = survey.booking as any
     if (booking?.rental_date && booking?.time_slots?.length > 0) {
       const startHour = Math.min(...booking.time_slots)
-      const bookingStartTime = new Date(`${booking.rental_date}T${String(startHour).padStart(2, '0')}:00:00`)
+      // 한국 시간대(KST, UTC+9) 명시
+      const bookingStartTime = new Date(`${booking.rental_date}T${String(startHour).padStart(2, '0')}:00:00+09:00`)
       const now = new Date()
 
       if (now < bookingStartTime) {

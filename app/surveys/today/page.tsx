@@ -127,11 +127,12 @@ export default function TodaySurveyPage() {
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0]
 
-  // 예약 시작 시간이 지났는지 확인
+  // 예약 시작 시간이 지났는지 확인 (한국 시간 기준)
   const isBookingStarted = (booking: TodayBooking) => {
     if (!booking.time_slots || booking.time_slots.length === 0) return true
     const startHour = Math.min(...booking.time_slots)
-    const bookingStartTime = new Date(`${booking.rental_date}T${String(startHour).padStart(2, '0')}:00:00`)
+    // 한국 시간대(KST, UTC+9) 명시
+    const bookingStartTime = new Date(`${booking.rental_date}T${String(startHour).padStart(2, '0')}:00:00+09:00`)
     return new Date() >= bookingStartTime
   }
 
