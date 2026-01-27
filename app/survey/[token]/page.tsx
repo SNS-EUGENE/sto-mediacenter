@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useRouter } from 'next/navigation'
 import { Send, CheckCircle2, AlertCircle, Loader2, Clock } from 'lucide-react'
 import {
   SATISFACTION_LEVELS,
@@ -52,6 +52,7 @@ interface SurveyFormData {
 
 export default function SurveyPage() {
   const params = useParams()
+  const router = useRouter()
   const token = params.token as string
 
   const [loading, setLoading] = useState(true)
@@ -60,6 +61,7 @@ export default function SurveyPage() {
   const [survey, setSurvey] = useState<SurveyData | null>(null)
   const [submitted, setSubmitted] = useState(false)
   const [accessDenied, setAccessDenied] = useState<AccessDeniedInfo | null>(null)
+  const [countdown, setCountdown] = useState(5)
 
   const [formData, setFormData] = useState<SurveyFormData>({
     category_ratings: {},
@@ -75,7 +77,26 @@ export default function SurveyPage() {
 
   useEffect(() => {
     fetchSurvey()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [token])
+
+  // 제출 완료 후 자동 이동
+  useEffect(() => {
+    if (!submitted) return
+
+    const timer = setInterval(() => {
+      setCountdown((prev) => {
+        if (prev <= 1) {
+          clearInterval(timer)
+          router.push('/surveys/today')
+          return 0
+        }
+        return prev - 1
+      })
+    }, 1000)
+
+    return () => clearInterval(timer)
+  }, [submitted, router])
 
   const fetchSurvey = async () => {
     try {
@@ -289,9 +310,20 @@ export default function SurveyPage() {
             <br />
             더 나은 서비스를 위해 노력하겠습니다.
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-gray-500 mb-6">
             서울관광플라자 온라인미디어센터 스튜디오를 이용해 주셔서 감사합니다.
           </p>
+          <div className="pt-4 border-t border-green-500/20">
+            <p className="text-sm text-gray-400 mb-3">
+              {countdown}초 후 설문 목록으로 이동합니다...
+            </p>
+            <button
+              onClick={() => router.push('/surveys/today')}
+              className="w-full py-3 bg-green-600 text-white rounded-xl font-medium hover:bg-green-700 transition"
+            >
+              지금 이동하기
+            </button>
+          </div>
         </div>
       </div>
     )
@@ -381,6 +413,7 @@ export default function SurveyPage() {
                       <>
                         <p className="text-gray-300 text-sm mb-2">
                           {questionNumber}-A. {conditionalConfig.question}
+                          {cat.key === 'overall' && <span className="text-red-400"> *</span>}
                         </p>
                         {'placeholder' in conditionalConfig && (
                           <textarea

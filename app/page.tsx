@@ -278,83 +278,56 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Main Content: Today's Schedule + Recent on left, Notifications on right */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Left Column - Today's Schedule + Recent Bookings stacked */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Today's Schedule */}
-              <div className="glass-card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">오늘의 일정</h2>
-                  <span className="text-sm text-white/40">
-                    {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
-                  </span>
-                </div>
-
-                <div className="space-y-3">
-                  {loading ? (
-                    <div className="flex items-center justify-center py-8">
-                      <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
-                    </div>
-                  ) : todayBookings.length > 0 ? (
-                    todayBookings.slice(0, 4).map((booking, idx) => {
-                      const barClass = ['schedule-bar-violet', 'schedule-bar-cyan', 'schedule-bar-amber', 'schedule-bar-rose'][idx % 4]
-                      const badgeColors = [
-                        'bg-violet-500/20 text-violet-300',
-                        'bg-cyan-500/20 text-cyan-300',
-                        'bg-amber-500/20 text-amber-300',
-                        'bg-rose-500/20 text-rose-300'
-                      ][idx % 4]
-
-                      return (
-                        <div key={booking.id} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
-                          <div className={`w-1 h-12 rounded-full ${barClass}`} />
-                          <div className="flex-1">
-                            <div className="flex items-center gap-2 mb-1">
-                              <span className="font-medium">{booking.event_name || '예약'}</span>
-                              <span className={`px-2 py-0.5 ${badgeColors} text-xs rounded`}>{getStudioName(booking.studio_id)}</span>
-                            </div>
-                            <p className="text-sm text-white/40">{booking.applicant_name} | {timeSlotsToString(booking.time_slots || [])}</p>
-                          </div>
-                          <span className={`px-3 py-1 text-xs rounded-full ${booking.status === 'CONFIRMED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
-                            {booking.status === 'CONFIRMED' ? '확정' : '대기'}
-                          </span>
-                        </div>
-                      )
-                    })
-                  ) : (
-                    <div className="text-center py-8 text-white/40">오늘 예약이 없습니다</div>
-                  )}
-                </div>
+          {/* Main Content: Today's Schedule + Notifications on top row */}
+          <div className="grid lg:grid-cols-3 gap-6 mb-6">
+            {/* Left - Today's Schedule */}
+            <div className="lg:col-span-2 glass-card p-6">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">오늘의 일정</h2>
+                <span className="text-sm text-white/40">
+                  {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+                </span>
               </div>
 
-              {/* Recent Bookings - 2 columns, sorted by earliest date */}
-              <div className="glass-card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">최근 예약</h2>
-                  <a href="/bookings" className="text-xs text-violet-400">더보기</a>
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  {recentBookings.slice(0, 4).map((booking) => (
-                    <div key={booking.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
-                      <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
-                        <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-                        </svg>
+              <div className="space-y-3">
+                {loading ? (
+                  <div className="flex items-center justify-center py-8">
+                    <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                  </div>
+                ) : todayBookings.length > 0 ? (
+                  todayBookings.slice(0, 4).map((booking, idx) => {
+                    const barClass = ['schedule-bar-violet', 'schedule-bar-cyan', 'schedule-bar-amber', 'schedule-bar-rose'][idx % 4]
+                    const badgeColors = [
+                      'bg-violet-500/20 text-violet-300',
+                      'bg-cyan-500/20 text-cyan-300',
+                      'bg-amber-500/20 text-amber-300',
+                      'bg-rose-500/20 text-rose-300'
+                    ][idx % 4]
+
+                    return (
+                      <div key={booking.id} className="flex items-center gap-4 p-4 rounded-xl bg-white/5 hover:bg-white/10 transition-colors">
+                        <div className={`w-1 h-12 rounded-full ${barClass}`} />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <span className="font-medium">{booking.event_name || '예약'}</span>
+                            <span className={`px-2 py-0.5 ${badgeColors} text-xs rounded`}>{getStudioName(booking.studio_id)}</span>
+                          </div>
+                          <p className="text-sm text-white/40">{booking.applicant_name} | {timeSlotsToString(booking.time_slots || [])}</p>
+                        </div>
+                        <span className={`px-3 py-1 text-xs rounded-full ${booking.status === 'CONFIRMED' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                          {booking.status === 'CONFIRMED' ? '확정' : '대기'}
+                        </span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium truncate">{booking.applicant_name}</p>
-                        <p className="text-xs text-white/40">{getStudioName(booking.studio_id)}</p>
-                      </div>
-                      <span className="text-xs text-amber-400">{booking.rental_date}</span>
-                    </div>
-                  ))}
-                </div>
+                    )
+                  })
+                ) : (
+                  <div className="text-center py-8 text-white/40">오늘 예약이 없습니다</div>
+                )}
               </div>
             </div>
 
-            {/* Right Column - Notifications (full height) */}
-            <div className="glass-card p-6 lg:row-span-2">
+            {/* Right - Notifications (같은 행 높이) */}
+            <div className="glass-card p-6">
               <div className="flex items-center justify-between mb-4">
                 <h2 className="text-lg font-semibold">알림</h2>
                 {alerts.length > 0 && alerts[0].type !== 'info' && (
@@ -362,22 +335,58 @@ export default function DashboardPage() {
                 )}
               </div>
               <div className="space-y-3">
-                {alerts.map((alert, idx) => {
-                  const colorMap = { error: 'rose', warning: 'amber', info: 'cyan' } as const
-                  const bgColorMap = { error: 'bg-rose-500', warning: 'bg-amber-500', info: 'bg-cyan-500' } as const
-                  const color = colorMap[alert.type]
-                  const bgColor = bgColorMap[alert.type]
-                  return (
-                    <div key={idx} className={`notification-item notification-${color}`}>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className={`w-2 h-2 rounded-full ${bgColor}`} />
-                        <span className="text-sm font-medium">{alert.title}</span>
+                {alerts.length > 0 ? (
+                  alerts.map((alert, idx) => {
+                    const colorMap = { error: 'rose', warning: 'amber', info: 'cyan' } as const
+                    const bgColorMap = { error: 'bg-rose-500', warning: 'bg-amber-500', info: 'bg-cyan-500' } as const
+                    const color = colorMap[alert.type]
+                    const bgColor = bgColorMap[alert.type]
+                    return (
+                      <div key={idx} className={`notification-item notification-${color}`}>
+                        <div className="flex items-center gap-2 mb-1">
+                          <span className={`w-2 h-2 rounded-full ${bgColor}`} />
+                          <span className="text-sm font-medium">{alert.title}</span>
+                        </div>
+                        <p className="text-xs text-white/40 pl-4">{alert.description}</p>
                       </div>
-                      <p className="text-xs text-white/40 pl-4">{alert.description}</p>
+                    )
+                  })
+                ) : (
+                  <div className="flex flex-col items-center justify-center py-6 text-center">
+                    <div className="w-12 h-12 rounded-full bg-emerald-500/10 flex items-center justify-center mb-3">
+                      <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M5 13l4 4L19 7" />
+                      </svg>
                     </div>
-                  )
-                })}
+                    <p className="text-sm text-white/60">처리할 알림이 없습니다</p>
+                    <p className="text-xs text-white/30 mt-1">모든 항목이 정상입니다</p>
+                  </div>
+                )}
               </div>
+            </div>
+          </div>
+
+          {/* Recent Bookings - Full width row */}
+          <div className="glass-card p-6">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold">최근 예약</h2>
+              <a href="/bookings" className="text-xs text-violet-400">더보기</a>
+            </div>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+              {recentBookings.slice(0, 4).map((booking) => (
+                <div key={booking.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
+                    <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium truncate">{booking.applicant_name}</p>
+                    <p className="text-xs text-white/40">{getStudioName(booking.studio_id)}</p>
+                  </div>
+                  <span className="text-xs text-amber-400">{booking.rental_date}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>

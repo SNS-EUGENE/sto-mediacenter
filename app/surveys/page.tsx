@@ -88,6 +88,10 @@ interface SurveyStats {
   responseRate: number       // 전체 예약 대비 응답률
   avgRating: number
   categoryAverages: Record<string, number>
+  // 적정 비용 통계
+  avgCostSmallStudio: number | null
+  avgCostLargeStudio: number | null
+  costResponseCount: number
 }
 
 export default function SurveysPage() {
@@ -99,6 +103,9 @@ export default function SurveysPage() {
     responseRate: 0,
     avgRating: 0,
     categoryAverages: {},
+    avgCostSmallStudio: null,
+    avgCostLargeStudio: null,
+    costResponseCount: 0,
   })
 
   // 필터
@@ -247,12 +254,45 @@ export default function SurveysPage() {
       const totalBookings = combined.length
       const responseRate = totalBookings > 0 ? (completedSurveys.length / totalBookings) * 100 : 0
 
+      // 적정 비용 평균 계산
+      const costSmallValues: number[] = []
+      const costLargeValues: number[] = []
+
+      completedSurveys.forEach(item => {
+        if (item.survey?.improvement_request) {
+          try {
+            const additionalData = JSON.parse(item.survey.improvement_request)
+            if (additionalData.cost_small_studio) {
+              const value = Number(additionalData.cost_small_studio)
+              if (!isNaN(value) && value > 0) costSmallValues.push(value)
+            }
+            if (additionalData.cost_large_studio) {
+              const value = Number(additionalData.cost_large_studio)
+              if (!isNaN(value) && value > 0) costLargeValues.push(value)
+            }
+          } catch {
+            // JSON 파싱 실패 무시
+          }
+        }
+      })
+
+      const avgCostSmallStudio = costSmallValues.length > 0
+        ? costSmallValues.reduce((sum, v) => sum + v, 0) / costSmallValues.length
+        : null
+      const avgCostLargeStudio = costLargeValues.length > 0
+        ? costLargeValues.reduce((sum, v) => sum + v, 0) / costLargeValues.length
+        : null
+      const costResponseCount = Math.max(costSmallValues.length, costLargeValues.length)
+
       setStats({
         totalBookings,
         completedSurveys: completedSurveys.length,
         responseRate,
         avgRating,
         categoryAverages,
+        avgCostSmallStudio,
+        avgCostLargeStudio,
+        costResponseCount,
       })
 
       // 동기화 실패 건수
@@ -428,6 +468,33 @@ export default function SurveysPage() {
                     <p className="text-gray-500 text-sm text-center py-4 col-span-2">아직 응답 데이터가 없습니다.</p>
                   )}
                 </div>
+
+                {/* 적정 비용 통계 */}
+                {(stats.avgCostSmallStudio || stats.avgCostLargeStudio) && (
+                  <div className="mt-4 pt-4 border-t border-white/10">
+                    <p className="text-sm text-gray-500 mb-3">적정 비용 (응답 {stats.costResponseCount}건 기준)</p>
+                    <div className="grid grid-cols-2 gap-4">
+                      {stats.avgCostSmallStudio && (
+                        <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                          <p className="text-xs text-gray-400 mb-1">1인 스튜디오 적정가</p>
+                          <p className="text-lg font-bold text-purple-400">
+                            {Math.round(stats.avgCostSmallStudio).toLocaleString()}원
+                            <span className="text-xs text-gray-500 font-normal"> /시간</span>
+                          </p>
+                        </div>
+                      )}
+                      {stats.avgCostLargeStudio && (
+                        <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
+                          <p className="text-xs text-gray-400 mb-1">대형 스튜디오 적정가</p>
+                          <p className="text-lg font-bold text-purple-400">
+                            {Math.round(stats.avgCostLargeStudio).toLocaleString()}원
+                            <span className="text-xs text-gray-500 font-normal"> /시간</span>
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
               </GlassCard>
 
               {/* QR 코드 안내 */}

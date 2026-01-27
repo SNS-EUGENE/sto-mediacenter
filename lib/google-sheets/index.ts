@@ -46,6 +46,20 @@ interface SurveyDataV2 {
   comment: string | null
 }
 
+// 제출 일시를 YYYY-MM-DD HH:mm:ss 형식으로 변환 (한국 시간)
+function formatSubmittedAt(isoString: string): string {
+  const date = new Date(isoString)
+  // 한국 시간으로 변환
+  const kstDate = new Date(date.getTime() + (9 * 60 * 60 * 1000))
+  const year = kstDate.getUTCFullYear()
+  const month = String(kstDate.getUTCMonth() + 1).padStart(2, '0')
+  const day = String(kstDate.getUTCDate()).padStart(2, '0')
+  const hours = String(kstDate.getUTCHours()).padStart(2, '0')
+  const minutes = String(kstDate.getUTCMinutes()).padStart(2, '0')
+  const seconds = String(kstDate.getUTCSeconds()).padStart(2, '0')
+  return `${year}-${month}-${day} ${hours}:${minutes}:${seconds}`
+}
+
 // 만족도조사 데이터를 구글 시트에 추가 (2026년 양식)
 export async function appendSurveyToSheet(
   spreadsheetId: string,
@@ -61,9 +75,12 @@ export async function appendSurveyToSheet(
   const recommendationLabel = surveyData.recommendation === 'yes' ? '있다' : surveyData.recommendation === 'no' ? '없다' : ''
   const reuseLabel = surveyData.reuseIntention === 'yes' ? '있다' : surveyData.reuseIntention === 'no' ? '없다' : ''
 
+  // 제출 일시 형식 변환 (YYYY-MM-DD HH:mm:ss)
+  const formattedSubmittedAt = formatSubmittedAt(surveyData.submittedAt)
+
   // 행 데이터 구성 (2026년 양식)
   const row = [
-    surveyData.submittedAt,                      // A: 제출일시
+    formattedSubmittedAt,                        // A: 제출일시 (YYYY-MM-DD HH:mm:ss)
     surveyData.studioName,                       // B: 스튜디오
     surveyData.rentalDate,                       // C: 방문일자
     surveyData.applicantName,                    // D: 이용자

@@ -7,6 +7,29 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
+// time_slots 배열을 "HH~HH시" 형식으로 변환
+function formatTimeSlots(timeSlots?: number[]): string {
+  if (!timeSlots || timeSlots.length === 0) return ''
+  const start = timeSlots[0]
+  const end = timeSlots[timeSlots.length - 1] + 1
+  return `${String(start).padStart(2, '0')}~${String(end).padStart(2, '0')}시`
+}
+
+// 푸시 알림 발송
+async function sendPushNotification(title: string, body: string, url?: string) {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'https://sto-mediacenter.vercel.app'
+
+    await fetch(`${baseUrl}/api/push/send`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ title, body, url: url || '/surveys' }),
+    })
+  } catch (error) {
+    console.error('[Survey] 푸시 알림 발송 실패:', error)
+  }
+}
+
 // 구글 시트 동기화 함수 (2026년 새 양식)
 async function syncToGoogleSheet(surveyId: string, surveyData: {
   submittedAt: string
@@ -180,6 +203,7 @@ export async function POST(
           applicant_name,
           organization,
           rental_date,
+          time_slots,
           studio:studios (name)
         )
       `)
@@ -282,6 +306,16 @@ export async function POST(
         comment: comment || null,
       }).catch(err => {
         console.error('Background Google Sheet sync failed:', err)
+      })
+
+      // 푸시 알림 발송: OO스튜디오 YYYY-MM-DD HH~HH시 예약 건에 대한 만족도 조사가 완료되었습니다.
+      const studioName = booking.studio?.name || '스튜디오'
+      const timeRange = formatTimeSlots(booking.time_slots)
+      sendPushNotification(
+        '만족도 조사 완료',
+        `${studioName} ${booking.rental_date} ${timeRange} 예약 건에 대한 만족도 조사가 완료되었습니다.`
+      ).catch(err => {
+        console.error('Background push notification failed:', err)
       })
     }
 
