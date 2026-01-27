@@ -7,7 +7,6 @@ import Select from '@/components/ui/Select'
 import { supabase } from '@/lib/supabase/client'
 import { SURVEY_CATEGORIES, CATEGORY_LABELS, ALL_CATEGORY_KEYS } from '@/lib/survey/config'
 import {
-  ClipboardCheck,
   Loader2,
   QrCode,
   RefreshCcw,
@@ -19,7 +18,6 @@ import {
   BarChart3,
   CheckCircle,
   Clock,
-  ExternalLink,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 
@@ -257,36 +255,35 @@ export default function SurveysPage() {
 
   return (
     <AdminLayout>
-      <div className="h-full overflow-y-auto p-4 lg:p-6 space-y-6">
-        {/* 헤더 */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 rounded-xl bg-yellow-500/20">
-              <ClipboardCheck className="w-6 h-6 text-yellow-400" />
-            </div>
+      <div className="h-full flex flex-col overflow-hidden">
+        {/* Sticky Header */}
+        <div className="flex-shrink-0 pb-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
             <div>
               <h1 className="text-xl lg:text-2xl font-bold text-white">만족도조사</h1>
-              <p className="text-sm text-gray-400">설문 응답 현황 및 통계</p>
+              <p className="text-sm text-gray-500">
+                총 {stats.totalSurveys}건 · 응답 {stats.completedSurveys}건
+              </p>
             </div>
-          </div>
-
-          {/* 필터 */}
-          <div className="flex items-center gap-2">
-            <Select
-              value={selectedYear.toString()}
-              onChange={(v) => setSelectedYear(parseInt(v))}
-              options={yearOptions}
-              className="w-28"
-            />
-            <Select
-              value={selectedMonth?.toString() || ''}
-              onChange={(v) => setSelectedMonth(v ? parseInt(v) : null)}
-              options={monthOptions}
-              className="w-24"
-            />
+            <div className="flex items-center gap-2">
+              <Select
+                value={selectedYear.toString()}
+                onChange={(v) => setSelectedYear(parseInt(v))}
+                options={yearOptions}
+                className="w-28"
+              />
+              <Select
+                value={selectedMonth?.toString() || ''}
+                onChange={(v) => setSelectedMonth(v ? parseInt(v) : null)}
+                options={monthOptions}
+                className="w-24"
+              />
+            </div>
           </div>
         </div>
 
+        {/* Scrollable Content */}
+        <div className="flex-1 overflow-y-auto space-y-4">
         {loading ? (
           <div className="flex items-center justify-center py-20">
             <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
@@ -348,14 +345,14 @@ export default function SurveysPage() {
             </div>
 
             {/* 카테고리별 만족도 & QR 코드 */}
-            <div className="grid lg:grid-cols-3 gap-6">
+            <div className="grid lg:grid-cols-3 gap-4">
               {/* 카테고리별 만족도 */}
               <GlassCard className="lg:col-span-2">
-                <div className="flex items-center gap-2 mb-4">
+                <div className="flex items-center gap-2 mb-3">
                   <BarChart3 className="w-5 h-5 text-purple-400" />
                   <h3 className="text-lg font-semibold text-white">항목별 만족도</h3>
                 </div>
-                <div className="space-y-4">
+                <div className="space-y-3">
                   {/* 데이터가 있는 항목만 표시 (새 항목 우선, 레거시 항목도 표시) */}
                   {Object.entries(stats.categoryAverages)
                     .filter(([, avg]) => avg > 0)
@@ -399,29 +396,23 @@ export default function SurveysPage() {
               </GlassCard>
 
               {/* QR 코드 안내 */}
-              <GlassCard>
-                <div className="flex items-center gap-2 mb-4">
+              <GlassCard className="flex flex-col items-center justify-center">
+                <div className="flex items-center gap-2 mb-3">
                   <QrCode className="w-5 h-5 text-green-400" />
                   <h3 className="text-lg font-semibold text-white">설문 QR 코드</h3>
                 </div>
-                <div className="text-center py-4">
-                  <div className="inline-block p-4 bg-white rounded-xl mb-4">
-                    <QrCode className="w-32 h-32 text-gray-900" />
-                  </div>
-                  <p className="text-sm text-gray-400 mb-4">
-                    아래 URL로 접속하면 오늘의 예약 목록에서<br />
-                    본인 예약을 선택하여 설문에 참여할 수 있습니다.
-                  </p>
-                  <a
-                    href="/surveys/today"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-colors"
-                  >
-                    <ExternalLink className="w-4 h-4" />
-                    /surveys/today
-                  </a>
-                </div>
+                <a
+                  href="/surveys/today"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:opacity-80 transition-opacity"
+                >
+                  <img
+                    src="/QR.png"
+                    alt="만족도 조사 QR 코드"
+                    className="w-36 h-36"
+                  />
+                </a>
               </GlassCard>
             </div>
 
@@ -482,11 +473,11 @@ export default function SurveysPage() {
 
               {surveys.length === 0 ? (
                 <div className="text-center py-12">
-                  <ClipboardCheck className="w-12 h-12 text-gray-600 mx-auto mb-4" />
+                  <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
                   <p className="text-gray-400">해당 기간의 설문 데이터가 없습니다.</p>
                 </div>
               ) : (
-                <div className="space-y-2">
+                <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
                   {surveys.map((survey) => (
                     <div
                       key={survey.id}
@@ -557,45 +548,103 @@ export default function SurveysPage() {
 
                       {/* 상세 정보 */}
                       {showDetail === survey.id && survey.submitted_at && (
-                        <div className="p-4 border-t border-white/10 bg-white/5">
-                          {/* 항목별 점수 - 데이터가 있는 항목만 표시 */}
+                        <div className="px-4 pb-4 border-t border-white/10 bg-white/5 space-y-3">
+                          {/* 항목별 점수 - 한 줄에 4개 */}
                           {survey.category_ratings && (
-                            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
+                            <div className="flex flex-wrap gap-x-6 gap-y-1 pt-3">
                               {Object.entries(survey.category_ratings)
                                 .filter(([, value]) => value)
                                 .map(([key, value]) => (
-                                  <div key={key} className="p-3 rounded-lg bg-white/5">
-                                    <p className="text-xs text-gray-500 mb-1">
-                                      {CATEGORY_LABELS[key] || key}
-                                    </p>
-                                    <div className="flex items-center gap-2">
-                                      <span className="text-lg font-bold text-white">{value}</span>
-                                      <StarRating rating={value} size="sm" />
-                                    </div>
+                                  <div key={key} className="flex items-center gap-2">
+                                    <span className="text-xs text-gray-500">{CATEGORY_LABELS[key] || key}</span>
+                                    <span className="text-sm font-semibold text-white">{value}</span>
+                                    <StarRating rating={value} size="sm" />
                                   </div>
                                 ))}
                             </div>
                           )}
 
-                          {/* 코멘트 */}
+                          {/* 추가 응답 데이터 */}
+                          {(() => {
+                            try {
+                              const additionalData = JSON.parse(survey.improvement_request || '{}')
+                              const hasAnyData = additionalData.recommendation || additionalData.reuse_intention ||
+                                additionalData.cost_small_studio || additionalData.cost_large_studio ||
+                                additionalData.overall_reason || additionalData.recommendation_reason ||
+                                additionalData.equipment_improvement
+
+                              if (!hasAnyData) return null
+
+                              return (
+                                <>
+                                  {/* 의향 + 적정비용 한 줄 */}
+                                  {(additionalData.recommendation || additionalData.reuse_intention ||
+                                    additionalData.cost_small_studio || additionalData.cost_large_studio) && (
+                                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                                      {additionalData.recommendation && (
+                                        <span className="text-gray-400">
+                                          추천 의향 : <span className={additionalData.recommendation === 'yes' ? 'text-green-400' : 'text-red-400'}>
+                                            {additionalData.recommendation === 'yes' ? '있다' : '없다'}
+                                          </span>
+                                        </span>
+                                      )}
+                                      {additionalData.reuse_intention && (
+                                        <span className="text-gray-400">
+                                          재이용 : <span className={additionalData.reuse_intention === 'yes' ? 'text-green-400' : 'text-red-400'}>
+                                            {additionalData.reuse_intention === 'yes' ? '있다' : '없다'}
+                                          </span>
+                                        </span>
+                                      )}
+                                      {additionalData.cost_small_studio && (
+                                        <span className="text-gray-400">
+                                          1인 스튜디오 적정가 : <span className="text-purple-400">{Number(additionalData.cost_small_studio).toLocaleString()}원</span>
+                                        </span>
+                                      )}
+                                      {additionalData.cost_large_studio && (
+                                        <span className="text-gray-400">
+                                          대형 스튜디오 적정가 : <span className="text-purple-400">{Number(additionalData.cost_large_studio).toLocaleString()}원</span>
+                                        </span>
+                                      )}
+                                    </div>
+                                  )}
+
+                                  {/* 텍스트 응답들 - 컴팩트하게 */}
+                                  {(additionalData.overall_reason || additionalData.recommendation_reason || additionalData.equipment_improvement) && (
+                                    <div className="space-y-1 text-sm">
+                                      {additionalData.overall_reason && (
+                                        <p><span className="text-gray-500">만족도 이유 :</span> <span className="text-gray-300">{additionalData.overall_reason}</span></p>
+                                      )}
+                                      {additionalData.recommendation_reason && (
+                                        <p><span className="text-gray-500">추천 이유 :</span> <span className="text-gray-300">{additionalData.recommendation_reason}</span></p>
+                                      )}
+                                      {additionalData.equipment_improvement && (
+                                        <p><span className="text-gray-500">시설/장비 보완 :</span> <span className="text-gray-300">{additionalData.equipment_improvement}</span></p>
+                                      )}
+                                    </div>
+                                  )}
+                                </>
+                              )
+                            } catch {
+                              return null
+                            }
+                          })()}
+
+                          {/* 기타 의견 */}
                           {survey.comment && (
-                            <div className="p-3 rounded-lg bg-white/5">
-                              <p className="text-xs text-gray-500 mb-1">기타 의견</p>
-                              <p className="text-sm text-white">{survey.comment}</p>
-                            </div>
+                            <p className="text-sm"><span className="text-gray-500">기타:</span> <span className="text-gray-300">{survey.comment}</span></p>
                           )}
 
                           {/* 동기화 상태 */}
-                          <div className="mt-3 flex items-center gap-2 text-xs">
+                          <div className="flex items-center gap-2 text-xs pt-1">
                             {survey.google_sheet_synced ? (
                               <span className="flex items-center gap-1 text-green-400">
                                 <CheckCircle className="w-3 h-3" />
-                                구글 시트 동기화 완료
+                                시트 동기화 완료
                               </span>
                             ) : (
                               <span className="flex items-center gap-1 text-yellow-400">
                                 <Clock className="w-3 h-3" />
-                                구글 시트 동기화 대기
+                                시트 동기화 대기
                               </span>
                             )}
                           </div>
@@ -608,6 +657,7 @@ export default function SurveysPage() {
             </GlassCard>
           </>
         )}
+        </div>
       </div>
     </AdminLayout>
   )

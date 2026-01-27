@@ -72,13 +72,23 @@ export async function POST(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const booking = survey.booking as any
 
-      // improvement_request에서 discovery_channel, benefits 추출
-      let discoveryChannel = ''
-      let benefits: string[] = []
+      // improvement_request에서 새 양식 필드 추출
+      let overallReason = ''
+      let equipmentImprovement = ''
+      let costSmallStudio = ''
+      let costLargeStudio = ''
+      let recommendation = ''
+      let recommendationReason = ''
+      let reuseIntention = ''
       try {
         const additionalData = JSON.parse(survey.improvement_request || '{}')
-        discoveryChannel = additionalData.discovery_channel || ''
-        benefits = additionalData.benefits || []
+        overallReason = additionalData.overall_reason || ''
+        equipmentImprovement = additionalData.equipment_improvement || ''
+        costSmallStudio = additionalData.cost_small_studio || ''
+        costLargeStudio = additionalData.cost_large_studio || ''
+        recommendation = additionalData.recommendation || ''
+        recommendationReason = additionalData.recommendation_reason || ''
+        reuseIntention = additionalData.reuse_intention || ''
       } catch {
         // JSON 파싱 실패 시 무시
       }
@@ -91,10 +101,14 @@ export async function POST(request: NextRequest) {
           rentalDate: booking?.rental_date || '',
           applicantName: booking?.applicant_name || '',
           organization: booking?.organization || null,
-          overallRating: survey.overall_rating || 0,
           categoryRatings: survey.category_ratings || {},
-          discoveryChannel,
-          benefits,
+          overallReason,
+          equipmentImprovement,
+          costSmallStudio,
+          costLargeStudio,
+          recommendation,
+          recommendationReason,
+          reuseIntention,
           comment: survey.comment || null,
         })
 
@@ -172,13 +186,23 @@ export async function POST(request: NextRequest) {
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       const booking = survey.booking as any
 
-      // improvement_request에서 discovery_channel, benefits 추출
-      let discoveryChannel = ''
-      let benefits: string[] = []
+      // improvement_request에서 새 양식 필드 추출
+      let overallReason = ''
+      let equipmentImprovement = ''
+      let costSmallStudio = ''
+      let costLargeStudio = ''
+      let recommendation = ''
+      let recommendationReason = ''
+      let reuseIntention = ''
       try {
         const additionalData = JSON.parse(survey.improvement_request || '{}')
-        discoveryChannel = additionalData.discovery_channel || ''
-        benefits = additionalData.benefits || []
+        overallReason = additionalData.overall_reason || ''
+        equipmentImprovement = additionalData.equipment_improvement || ''
+        costSmallStudio = additionalData.cost_small_studio || ''
+        costLargeStudio = additionalData.cost_large_studio || ''
+        recommendation = additionalData.recommendation || ''
+        recommendationReason = additionalData.recommendation_reason || ''
+        reuseIntention = additionalData.reuse_intention || ''
       } catch {
         // JSON 파싱 실패 시 무시
       }
@@ -190,10 +214,14 @@ export async function POST(request: NextRequest) {
           rentalDate: booking?.rental_date || '',
           applicantName: booking?.applicant_name || '',
           organization: booking?.organization || null,
-          overallRating: survey.overall_rating || 0,
           categoryRatings: survey.category_ratings || {},
-          discoveryChannel,
-          benefits,
+          overallReason,
+          equipmentImprovement,
+          costSmallStudio,
+          costLargeStudio,
+          recommendation,
+          recommendationReason,
+          reuseIntention,
           comment: survey.comment || null,
         })
 

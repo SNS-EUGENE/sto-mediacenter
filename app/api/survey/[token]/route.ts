@@ -7,17 +7,21 @@ const supabase = createClient(
   process.env.SUPABASE_SERVICE_ROLE_KEY!
 )
 
-// 구글 시트 동기화 함수
+// 구글 시트 동기화 함수 (2026년 새 양식)
 async function syncToGoogleSheet(surveyId: string, surveyData: {
   submittedAt: string
   studioName: string
   rentalDate: string
   applicantName: string
   organization: string | null
-  overallRating: number
   categoryRatings: Record<string, number>
-  discoveryChannel: string
-  benefits: string[]
+  overallReason: string
+  equipmentImprovement: string
+  costSmallStudio: string
+  costLargeStudio: string
+  recommendation: string
+  recommendationReason: string
+  reuseIntention: string
   comment: string | null
 }) {
   try {
@@ -219,13 +223,23 @@ export async function POST(
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const booking = survey.booking as any
     if (booking) {
-      // improvement_request에서 discovery_channel, benefits 추출
-      let discoveryChannel = ''
-      let benefits: string[] = []
+      // improvement_request에서 새 양식 필드 추출
+      let overallReason = ''
+      let equipmentImprovement = ''
+      let costSmallStudio = ''
+      let costLargeStudio = ''
+      let recommendation = ''
+      let recommendationReason = ''
+      let reuseIntentionValue = ''
       try {
         const additionalData = JSON.parse(improvement_request || '{}')
-        discoveryChannel = additionalData.discovery_channel || ''
-        benefits = additionalData.benefits || []
+        overallReason = additionalData.overall_reason || ''
+        equipmentImprovement = additionalData.equipment_improvement || ''
+        costSmallStudio = additionalData.cost_small_studio || ''
+        costLargeStudio = additionalData.cost_large_studio || ''
+        recommendation = additionalData.recommendation || ''
+        recommendationReason = additionalData.recommendation_reason || ''
+        reuseIntentionValue = additionalData.reuse_intention || ''
       } catch {
         // JSON 파싱 실패 시 무시
       }
@@ -236,10 +250,14 @@ export async function POST(
         rentalDate: booking.rental_date,
         applicantName: booking.applicant_name,
         organization: booking.organization,
-        overallRating: overall_rating,
         categoryRatings: category_ratings || {},
-        discoveryChannel,
-        benefits,
+        overallReason,
+        equipmentImprovement,
+        costSmallStudio,
+        costLargeStudio,
+        recommendation,
+        recommendationReason,
+        reuseIntention: reuseIntentionValue,
         comment: comment || null,
       }).catch(err => {
         console.error('Background Google Sheet sync failed:', err)

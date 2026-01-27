@@ -1,4 +1,5 @@
 // 구글 시트 연동 유틸리티
+// 2026년 온라인미디어센터 스튜디오 이용 만족도 조사 양식 기준
 import { google } from 'googleapis'
 
 // 구글 시트 ID를 URL에서 추출
@@ -23,45 +24,68 @@ export function getGoogleSheetsClient() {
   return google.sheets({ version: 'v4', auth })
 }
 
-// 만족도조사 데이터를 구글 시트에 추가
+// 2026년 새 양식 데이터 타입
+interface SurveyDataV2 {
+  submittedAt: string
+  studioName: string
+  rentalDate: string
+  applicantName: string
+  organization: string | null
+  // 항목별 만족도 (1-5점)
+  categoryRatings: Record<string, number>
+  // 조건부 질문 답변 (improvement_request JSON에서 파싱)
+  overallReason: string
+  equipmentImprovement: string
+  costSmallStudio: string
+  costLargeStudio: string
+  // 추천/재이용 의향
+  recommendation: string
+  recommendationReason: string
+  reuseIntention: string
+  // 기타 의견
+  comment: string | null
+}
+
+// 만족도조사 데이터를 구글 시트에 추가 (2026년 양식)
 export async function appendSurveyToSheet(
   spreadsheetId: string,
-  surveyData: {
-    submittedAt: string
-    studioName: string
-    rentalDate: string
-    applicantName: string
-    organization: string | null
-    overallRating: number
-    categoryRatings: Record<string, number>
-    discoveryChannel: string
-    benefits: string[]
-    comment: string | null
-  }
+  surveyData: SurveyDataV2
 ) {
   const sheets = getGoogleSheetsClient()
 
-  // 카테고리별 평점 추출
-  const categoryLabels = ['overall', 'staff_kindness', 'staff_expertise', 'booking_process', 'cleanliness', 'equipment']
-  const categoryRatings = categoryLabels.map(key => surveyData.categoryRatings[key] || '')
+  // 카테고리별 평점 추출 (새 양식: overall, equipment, staff, cost)
+  const categoryKeys = ['overall', 'equipment', 'staff', 'cost']
+  const categoryRatings = categoryKeys.map(key => surveyData.categoryRatings[key] || '')
 
-  // 행 데이터 구성
+  // 추천/재이용 의향 한글 변환
+  const recommendationLabel = surveyData.recommendation === 'yes' ? '있다' : surveyData.recommendation === 'no' ? '없다' : ''
+  const reuseLabel = surveyData.reuseIntention === 'yes' ? '있다' : surveyData.reuseIntention === 'no' ? '없다' : ''
+
+  // 행 데이터 구성 (2026년 양식)
   const row = [
-    surveyData.submittedAt,
-    surveyData.studioName,
-    surveyData.rentalDate,
-    surveyData.applicantName,
-    surveyData.organization || '',
-    ...categoryRatings,
-    surveyData.discoveryChannel,
-    surveyData.benefits.join(', '),
-    surveyData.comment || '',
+    surveyData.submittedAt,                      // A: 제출일시
+    surveyData.studioName,                       // B: 스튜디오
+    surveyData.rentalDate,                       // C: 방문일자
+    surveyData.applicantName,                    // D: 이용자
+    surveyData.organization || '',               // E: 업체명
+    categoryRatings[0] || '',                    // F: 전반적 만족도
+    surveyData.overallReason || '',              // G: 만족도 이유
+    categoryRatings[1] || '',                    // H: 시설/장비 만족도
+    surveyData.equipmentImprovement || '',       // I: 시설/장비 보완점
+    categoryRatings[2] || '',                    // J: 직원 응대 만족도
+    categoryRatings[3] || '',                    // K: 대관 비용 만족도
+    surveyData.costSmallStudio || '',            // L: 1인 스튜디오 적정 비용
+    surveyData.costLargeStudio || '',            // M: 대형 스튜디오 적정 비용
+    recommendationLabel,                         // N: 추천 의향
+    surveyData.recommendationReason || '',       // O: 추천 이유
+    reuseLabel,                                  // P: 재이용 의향
+    surveyData.comment || '',                    // Q: 기타 의견
   ]
 
   // 시트에 데이터 추가
   await sheets.spreadsheets.values.append({
     spreadsheetId,
-    range: 'A:N', // A열부터 N열까지
+    range: 'A:Q', // A열부터 Q열까지
     valueInputOption: 'USER_ENTERED',
     requestBody: {
       values: [row],
@@ -69,38 +93,41 @@ export async function appendSurveyToSheet(
   })
 }
 
-// 시트 헤더 확인 및 생성
+// 시트 헤더 확인 및 생성 (2026년 양식)
 export async function ensureSheetHeaders(spreadsheetId: string) {
   const sheets = getGoogleSheetsClient()
 
   // 첫 번째 행 확인
   const response = await sheets.spreadsheets.values.get({
     spreadsheetId,
-    range: 'A1:N1',
+    range: 'A1:Q1',
   })
 
   // 헤더가 없으면 생성
   if (!response.data.values || response.data.values.length === 0) {
     const headers = [
-      '제출일시',
-      '스튜디오',
-      '대관일',
-      '신청자',
-      '소속',
-      '전반적 만족도',
-      '직원 친절도',
-      '장비 전문성',
-      '예약 프로세스',
-      '청결 상태',
-      '장비 및 소품',
-      '인지 경로',
-      '도움이 된 부분',
-      '기타 의견',
+      '제출일시',           // A
+      '스튜디오',           // B
+      '방문일자',           // C
+      '이용자',             // D
+      '업체명',             // E
+      '전반적 만족도',      // F
+      '만족도 이유',        // G
+      '시설/장비 만족도',   // H
+      '시설/장비 보완점',   // I
+      '직원 응대 만족도',   // J
+      '대관 비용 만족도',   // K
+      '1인 스튜디오 적정비용', // L
+      '대형 스튜디오 적정비용', // M
+      '추천 의향',          // N
+      '추천 이유',          // O
+      '재이용 의향',        // P
+      '기타 의견',          // Q
     ]
 
     await sheets.spreadsheets.values.update({
       spreadsheetId,
-      range: 'A1:N1',
+      range: 'A1:Q1',
       valueInputOption: 'USER_ENTERED',
       requestBody: {
         values: [headers],
@@ -115,7 +142,7 @@ export async function testSheetAccess(spreadsheetId: string): Promise<{ success:
     const sheets = getGoogleSheetsClient()
 
     // 시트 정보 조회 시도
-    const response = await sheets.spreadsheets.get({
+    await sheets.spreadsheets.get({
       spreadsheetId,
     })
 
