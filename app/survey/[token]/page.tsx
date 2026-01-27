@@ -57,9 +57,9 @@ function formatTimeSlots(timeSlots?: number[]): string {
   return `${String(start).padStart(2, '0')}~${String(end).padStart(2, '0')}시`
 }
 
-// 스튜디오 이름으로 타입 판별 (대형 or 1인)
+// 스튜디오 이름으로 타입 판별 (메인 or 1인)
 function getStudioType(studioName: string): 'large' | 'small' {
-  // 스튜디오 C, 메인 스튜디오 = 대형 스튜디오
+  // 스튜디오 C, 메인 스튜디오 = 메인 스튜디오
   if (studioName.includes('C') || studioName.includes('대형') || studioName.includes('메인')) {
     return 'large'
   }
@@ -103,9 +103,9 @@ export default function SurveyPage() {
     comment: '',
   })
 
-  // 현재 스튜디오 타입 (대형 or 1인)
+  // 현재 스튜디오 타입 (메인 or 1인)
   const studioType = survey ? getStudioType(survey.booking.studio.name) : 'small'
-  const studioTypeLabel = studioType === 'large' ? '대형' : '1인'
+  const studioTypeLabel = studioType === 'large' ? '메인' : '1인'
 
   useEffect(() => {
     fetchSurvey()

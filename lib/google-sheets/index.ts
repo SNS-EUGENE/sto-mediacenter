@@ -92,7 +92,7 @@ export async function appendSurveyToSheet(
     categoryRatings[2] || '',                    // J: 직원 응대 만족도
     categoryRatings[3] || '',                    // K: 대관 비용 만족도
     surveyData.costSmallStudio || '',            // L: 1인 스튜디오 적정 비용
-    surveyData.costLargeStudio || '',            // M: 대형 스튜디오 적정 비용
+    surveyData.costLargeStudio || '',            // M: 메인 스튜디오 적정 비용
     recommendationLabel,                         // N: 추천 의향
     surveyData.recommendationReason || '',       // O: 추천 이유
     reuseLabel,                                  // P: 재이용 의향
@@ -135,7 +135,7 @@ export async function ensureSheetHeaders(spreadsheetId: string) {
       '직원 응대 만족도',   // J
       '대관 비용 만족도',   // K
       '1인 스튜디오 적정비용', // L
-      '대형 스튜디오 적정비용', // M
+      '메인 스튜디오 적정비용', // M
       '추천 의향',          // N
       '추천 이유',          // O
       '재이용 의향',        // P

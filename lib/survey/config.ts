@@ -53,7 +53,7 @@ export const CONDITIONAL_QUESTIONS = {
     question: '적정한 스튜디오 대관 비용은 얼마라고 생각하십니까?',
     subQuestions: [
       { key: 'cost_small_studio', label: '1인 스튜디오 1시간당 적정 금액', placeholder: '예: 50000' },
-      { key: 'cost_large_studio', label: '대형 스튜디오 1시간당 적정 금액', placeholder: '예: 100000' },
+      { key: 'cost_large_studio', label: '메인 스튜디오 1시간당 적정 금액', placeholder: '예: 100000' },
     ],
   },
 } as const

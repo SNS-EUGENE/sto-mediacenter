@@ -485,7 +485,7 @@ export default function SurveysPage() {
                       )}
                       {stats.avgCostLargeStudio && (
                         <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20">
-                          <p className="text-xs text-gray-400 mb-1">대형 스튜디오 적정가</p>
+                          <p className="text-xs text-gray-400 mb-1">메인 스튜디오 적정가</p>
                           <p className="text-lg font-bold text-purple-400">
                             {Math.round(stats.avgCostLargeStudio).toLocaleString()}원
                             <span className="text-xs text-gray-500 font-normal"> /시간</span>
@@ -734,7 +734,7 @@ export default function SurveysPage() {
                                       )}
                                       {additionalData.cost_large_studio && (
                                         <span className="text-gray-400">
-                                          대형 적정가 : <span className="text-purple-400">{Number(additionalData.cost_large_studio).toLocaleString()}원</span>
+                                          메인 적정가 : <span className="text-purple-400">{Number(additionalData.cost_large_studio).toLocaleString()}원</span>
                                         </span>
                                       )}
                                     </div>
