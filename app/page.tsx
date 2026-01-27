@@ -94,13 +94,13 @@ export default function DashboardPage() {
     })
   }, [monthBookings, today])
 
-  // 최근 예약 (날짜순)
+  // 최근 예약 (날짜 빠른 순서 - 오늘 이후)
   const recentBookings = useMemo(() => {
     return [...monthBookings]
-      .filter(b => b.status !== 'CANCELLED')
-      .sort((a, b) => b.rental_date.localeCompare(a.rental_date))
+      .filter(b => b.status !== 'CANCELLED' && b.rental_date >= todayStr)
+      .sort((a, b) => a.rental_date.localeCompare(b.rental_date))
       .slice(0, 4)
-  }, [monthBookings])
+  }, [monthBookings, todayStr])
 
   return (
     <AdminLayout>
@@ -181,71 +181,110 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Two Column Layout */}
-          <div className="grid lg:grid-cols-3 gap-6">
-            {/* Studio Status */}
-            <div className="lg:col-span-2 space-y-6">
-              {/* Studio Cards */}
-              <div className="glass-card p-6">
-                <div className="flex items-center justify-between mb-6">
-                  <h2 className="text-lg font-semibold">스튜디오 현황</h2>
-                  <a href="/calendar" className="text-sm text-violet-400 hover:text-violet-300 transition-colors">전체보기 →</a>
+          {/* Studio Status + Quick Actions Row */}
+          <div className="grid lg:grid-cols-4 gap-4 mb-6">
+            {/* Studio Cards - 3 columns */}
+            <div className="lg:col-span-3 glass-card p-4">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-base font-semibold">스튜디오 현황</h2>
+                <a href="/calendar" className="text-xs text-violet-400 hover:text-violet-300 transition-colors">전체보기 →</a>
+              </div>
+
+              <div className="grid grid-cols-3 gap-3">
+                {/* 메인 스튜디오 */}
+                <div className="p-3 rounded-xl studio-card-violet border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium">{STUDIOS[0].alias}</span>
+                    <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] rounded-full">예약가능</span>
+                  </div>
+                  <div className="progress-soft h-1.5 mb-1.5">
+                    <div className="bar h-full progress-bar-violet" style={{ width: `${studioStats[0]?.utilizationRate || 0}%` }} />
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-white/40">{studioStats[0]?.totalBookings || 0}건</span>
+                    <span className="text-violet-400">{(studioStats[0]?.utilizationRate || 0).toFixed(0)}%</span>
+                  </div>
                 </div>
 
-                <div className="grid sm:grid-cols-3 gap-4">
-                  {/* 메인 스튜디오 */}
-                  <div className="p-4 rounded-2xl studio-card-violet border">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium">{STUDIOS[0].alias}</span>
-                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">예약가능</span>
-                    </div>
-                    <p className="text-xs text-white/40 mb-2">{STUDIOS[0].description}</p>
-                    <div className="progress-soft h-2 mb-2">
-                      <div className="bar h-full progress-bar-violet" style={{ width: `${studioStats[0]?.utilizationRate || 0}%` }} />
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-white/40">{studioStats[0]?.totalBookings || 0}건 예약</span>
-                      <span className="text-violet-400">{(studioStats[0]?.utilizationRate || 0).toFixed(1)}%</span>
-                    </div>
+                {/* 1인 스튜디오 A */}
+                <div className="p-3 rounded-xl studio-card-cyan border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium">{STUDIOS[1].alias}</span>
+                    <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] rounded-full">예약가능</span>
                   </div>
-
-                  {/* 1인 스튜디오 A */}
-                  <div className="p-4 rounded-2xl studio-card-cyan border">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium">{STUDIOS[1].alias}</span>
-                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">예약가능</span>
-                    </div>
-                    <p className="text-xs text-white/40 mb-2">{STUDIOS[1].description}</p>
-                    <div className="progress-soft h-2 mb-2">
-                      <div className="bar h-full progress-bar-cyan" style={{ width: `${studioStats[1]?.utilizationRate || 0}%` }} />
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-white/40">{studioStats[1]?.totalBookings || 0}건 예약</span>
-                      <span className="text-cyan-400">{(studioStats[1]?.utilizationRate || 0).toFixed(1)}%</span>
-                    </div>
+                  <div className="progress-soft h-1.5 mb-1.5">
+                    <div className="bar h-full progress-bar-cyan" style={{ width: `${studioStats[1]?.utilizationRate || 0}%` }} />
                   </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-white/40">{studioStats[1]?.totalBookings || 0}건</span>
+                    <span className="text-cyan-400">{(studioStats[1]?.utilizationRate || 0).toFixed(0)}%</span>
+                  </div>
+                </div>
 
-                  {/* 1인 스튜디오 B */}
-                  <div className="p-4 rounded-2xl studio-card-rose border">
-                    <div className="flex items-center justify-between mb-3">
-                      <span className="text-sm font-medium">{STUDIOS[2].alias}</span>
-                      <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 text-xs rounded-full">예약가능</span>
-                    </div>
-                    <p className="text-xs text-white/40 mb-2">{STUDIOS[2].description}</p>
-                    <div className="progress-soft h-2 mb-2">
-                      <div className="bar h-full progress-bar-rose" style={{ width: `${studioStats[2]?.utilizationRate || 0}%` }} />
-                    </div>
-                    <div className="flex justify-between text-xs">
-                      <span className="text-white/40">{studioStats[2]?.totalBookings || 0}건 예약</span>
-                      <span className="text-rose-400">{(studioStats[2]?.utilizationRate || 0).toFixed(1)}%</span>
-                    </div>
+                {/* 1인 스튜디오 B */}
+                <div className="p-3 rounded-xl studio-card-rose border">
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="text-xs font-medium">{STUDIOS[2].alias}</span>
+                    <span className="px-1.5 py-0.5 bg-emerald-500/20 text-emerald-400 text-[10px] rounded-full">예약가능</span>
+                  </div>
+                  <div className="progress-soft h-1.5 mb-1.5">
+                    <div className="bar h-full progress-bar-rose" style={{ width: `${studioStats[2]?.utilizationRate || 0}%` }} />
+                  </div>
+                  <div className="flex justify-between text-[10px]">
+                    <span className="text-white/40">{studioStats[2]?.totalBookings || 0}건</span>
+                    <span className="text-rose-400">{(studioStats[2]?.utilizationRate || 0).toFixed(0)}%</span>
                   </div>
                 </div>
               </div>
+            </div>
 
+            {/* Quick Actions - 1 column, compact */}
+            <div className="glass-card p-4">
+              <h2 className="text-base font-semibold mb-3">빠른 실행</h2>
+              <div className="grid grid-cols-4 gap-2">
+                <a href="/bookings" className="quick-action quick-action-violet group p-2">
+                  <div className="w-8 h-8 mx-auto mb-1 rounded-lg bg-violet-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <svg className="w-4 h-4 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
+                    </svg>
+                  </div>
+                  <span className="text-[10px]">새 예약</span>
+                </a>
+                <a href="/bookings" className="quick-action quick-action-cyan group p-2">
+                  <div className="w-8 h-8 mx-auto mb-1 rounded-lg bg-cyan-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                    </svg>
+                  </div>
+                  <span className="text-[10px]">예약</span>
+                </a>
+                <a href="/equipments" className="quick-action quick-action-amber group p-2">
+                  <div className="w-8 h-8 mx-auto mb-1 rounded-lg bg-amber-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <svg className="w-4 h-4 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
+                    </svg>
+                  </div>
+                  <span className="text-[10px]">장비</span>
+                </a>
+                <a href="/statistics" className="quick-action quick-action-rose group p-2">
+                  <div className="w-8 h-8 mx-auto mb-1 rounded-lg bg-rose-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <svg className="w-4 h-4 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+                    </svg>
+                  </div>
+                  <span className="text-[10px]">통계</span>
+                </a>
+              </div>
+            </div>
+          </div>
+
+          {/* Main Content: Today's Schedule + Recent on left, Notifications on right */}
+          <div className="grid lg:grid-cols-3 gap-6">
+            {/* Left Column - Today's Schedule + Recent Bookings stacked */}
+            <div className="lg:col-span-2 space-y-6">
               {/* Today's Schedule */}
               <div className="glass-card p-6">
-                <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">오늘의 일정</h2>
                   <span className="text-sm text-white/40">
                     {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
@@ -288,84 +327,15 @@ export default function DashboardPage() {
                   )}
                 </div>
               </div>
-            </div>
 
-            {/* Right Column */}
-            <div className="space-y-6">
-              {/* Quick Actions */}
-              <div className="glass-card p-6">
-                <h2 className="text-lg font-semibold mb-4">빠른 실행</h2>
-                <div className="grid grid-cols-2 gap-3">
-                  <a href="/bookings" className="quick-action quick-action-violet group">
-                    <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-violet-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"/>
-                      </svg>
-                    </div>
-                    <span className="text-xs">새 예약</span>
-                  </a>
-                  <a href="/bookings" className="quick-action quick-action-cyan group">
-                    <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-cyan-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-5 h-5 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
-                      </svg>
-                    </div>
-                    <span className="text-xs">예약 확인</span>
-                  </a>
-                  <a href="/equipments" className="quick-action quick-action-amber group">
-                    <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-amber-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-5 h-5 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/>
-                      </svg>
-                    </div>
-                    <span className="text-xs">장비 관리</span>
-                  </a>
-                  <a href="/statistics" className="quick-action quick-action-rose group">
-                    <div className="w-10 h-10 mx-auto mb-2 rounded-xl bg-rose-500/20 flex items-center justify-center group-hover:scale-110 transition-transform">
-                      <svg className="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-                      </svg>
-                    </div>
-                    <span className="text-xs">리포트</span>
-                  </a>
-                </div>
-              </div>
-
-              {/* Notifications */}
-              <div className="glass-card p-6">
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">알림</h2>
-                  {alerts.length > 0 && alerts[0].type !== 'info' && (
-                    <span className="w-5 h-5 rounded-full bg-rose-500 text-xs flex items-center justify-center">{alerts.length}</span>
-                  )}
-                </div>
-                <div className="space-y-3">
-                  {alerts.map((alert, idx) => {
-                    const colorMap = { error: 'rose', warning: 'amber', info: 'cyan' } as const
-                    const bgColorMap = { error: 'bg-rose-500', warning: 'bg-amber-500', info: 'bg-cyan-500' } as const
-                    const color = colorMap[alert.type]
-                    const bgColor = bgColorMap[alert.type]
-                    return (
-                      <div key={idx} className={`notification-item notification-${color}`}>
-                        <div className="flex items-center gap-2 mb-1">
-                          <span className={`w-2 h-2 rounded-full ${bgColor}`} />
-                          <span className="text-sm font-medium">{alert.title}</span>
-                        </div>
-                        <p className="text-xs text-white/40 pl-4">{alert.description}</p>
-                      </div>
-                    )
-                  })}
-                </div>
-              </div>
-
-              {/* Recent Bookings */}
+              {/* Recent Bookings - 2 columns, sorted by earliest date */}
               <div className="glass-card p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">최근 예약</h2>
                   <a href="/bookings" className="text-xs text-violet-400">더보기</a>
                 </div>
-                <div className="space-y-3">
-                  {recentBookings.slice(0, 2).map((booking) => (
+                <div className="grid grid-cols-2 gap-3">
+                  {recentBookings.slice(0, 4).map((booking) => (
                     <div key={booking.id} className="flex items-center gap-3 p-3 rounded-xl bg-white/5">
                       <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-500/20 to-fuchsia-500/20 flex items-center justify-center">
                         <svg className="w-5 h-5 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -380,6 +350,33 @@ export default function DashboardPage() {
                     </div>
                   ))}
                 </div>
+              </div>
+            </div>
+
+            {/* Right Column - Notifications (full height) */}
+            <div className="glass-card p-6 lg:row-span-2">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold">알림</h2>
+                {alerts.length > 0 && alerts[0].type !== 'info' && (
+                  <span className="w-5 h-5 rounded-full bg-rose-500 text-xs flex items-center justify-center">{alerts.length}</span>
+                )}
+              </div>
+              <div className="space-y-3">
+                {alerts.map((alert, idx) => {
+                  const colorMap = { error: 'rose', warning: 'amber', info: 'cyan' } as const
+                  const bgColorMap = { error: 'bg-rose-500', warning: 'bg-amber-500', info: 'bg-cyan-500' } as const
+                  const color = colorMap[alert.type]
+                  const bgColor = bgColorMap[alert.type]
+                  return (
+                    <div key={idx} className={`notification-item notification-${color}`}>
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className={`w-2 h-2 rounded-full ${bgColor}`} />
+                        <span className="text-sm font-medium">{alert.title}</span>
+                      </div>
+                      <p className="text-xs text-white/40 pl-4">{alert.description}</p>
+                    </div>
+                  )
+                })}
               </div>
             </div>
           </div>

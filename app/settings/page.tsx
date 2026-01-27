@@ -1,9 +1,9 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
-import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key, Zap, Target, Presentation, Film, Gift, Building2, Users, Handshake, Smartphone, FileSpreadsheet, HelpCircle, ExternalLink, RefreshCcw } from 'lucide-react'
+import { Settings, RefreshCw, Bell, CheckCircle, AlertCircle, Clock, Loader2, Eye, EyeOff, Key, Zap, Target, Presentation, Film, Gift, Building2, Users, Handshake, Smartphone, FileSpreadsheet, HelpCircle, ExternalLink, RefreshCcw, Layout, BarChart3, Calendar, ClipboardCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import PushNotificationToggle from '@/components/notifications/PushNotificationToggle'
 
@@ -63,6 +63,11 @@ export default function SettingsPage() {
   const [notifySound, setNotifySound] = useState(true)
   const [pollInterval, setPollInterval] = useState(5) // 분 단위
 
+  // 초기값 저장 (변경 감지용)
+  const [initialNotifyOnNewBooking, setInitialNotifyOnNewBooking] = useState(true)
+  const [initialNotifySound, setInitialNotifySound] = useState(true)
+  const [initialPollInterval, setInitialPollInterval] = useState(5)
+
   // KPI 목표 설정
   const [kpiTargets, setKpiTargets] = useState({
     programOperation: 60,      // 프로그램 운영 활성화 (회)
@@ -72,6 +77,14 @@ export default function SettingsPage() {
     membershipStrength: 230,   // 멤버십 운영 강화 (명)
     longTermUsers: 2,          // 장기 이용자 확보 (곳)
   })
+  const [initialKpiTargets, setInitialKpiTargets] = useState({
+    programOperation: 60,
+    contentProduction: 60,
+    goodsEvent: 100,
+    studioActivation: 250,
+    membershipStrength: 230,
+    longTermUsers: 2,
+  })
 
   // 구글 시트 설정
   const [googleSheetUrl, setGoogleSheetUrl] = useState('')
@@ -80,6 +93,110 @@ export default function SettingsPage() {
   const [failedSyncCount, setFailedSyncCount] = useState(0)
   const [isSyncingSheets, setIsSyncingSheets] = useState(false)
   const [showSheetHelp, setShowSheetHelp] = useState(false)
+
+  // 화면 설정 (페이지별 커스텀)
+  const [displaySettings, setDisplaySettings] = useState({
+    // 대시보드
+    dashboard_recent_bookings_count: 4,        // 최근 예약 표시 개수
+    dashboard_show_notifications: true,        // 알림 카드 표시
+    // 예약 관리
+    bookings_default_status: 'all',            // 기본 상태 필터
+    bookings_items_per_page: 10,               // 페이지당 항목 수
+    // 통계
+    statistics_default_tab: 'overview',        // 기본 탭
+    // 만족도조사
+    surveys_items_per_page: 10,                // 페이지당 항목 수
+  })
+  const [initialDisplaySettings, setInitialDisplaySettings] = useState({
+    dashboard_recent_bookings_count: 4,
+    dashboard_show_notifications: true,
+    bookings_default_status: 'all',
+    bookings_items_per_page: 10,
+    statistics_default_tab: 'overview',
+    surveys_items_per_page: 10,
+  })
+
+  // 각 섹션별 저장 결과
+  const [syncSettingResult, setSyncSettingResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [kpiSettingResult, setKpiSettingResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [notifySettingResult, setNotifySettingResult] = useState<{ success: boolean; message: string } | null>(null)
+  const [displaySettingResult, setDisplaySettingResult] = useState<{ success: boolean; message: string } | null>(null)
+
+  // 스크롤 컨테이너 및 섹션 참조
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+  const sectionIds = ['sto', 'sync', 'kpi', 'notify', 'google-sheet', 'display']
+
+  // Intersection Observer로 현재 보이는 섹션 감지
+  useEffect(() => {
+    const container = scrollContainerRef.current
+    if (!container) return
+
+    // 스크롤 끝 감지 (마지막 섹션 처리)
+    const handleScroll = () => {
+      const { scrollTop, scrollHeight, clientHeight } = container
+      const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50
+
+      if (isAtBottom) {
+        // 스크롤이 끝에 도달하면 마지막 섹션 활성화
+        window.dispatchEvent(new CustomEvent('settings-section-change', { detail: 'display' }))
+      }
+    }
+
+    container.addEventListener('scroll', handleScroll)
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        // 스크롤이 끝에 있는지 확인
+        const { scrollTop, scrollHeight, clientHeight } = container
+        const isAtBottom = scrollTop + clientHeight >= scrollHeight - 50
+
+        // 끝에 있으면 마지막 섹션 우선
+        if (isAtBottom) return
+
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && entry.intersectionRatio > 0.2) {
+            const sectionId = entry.target.id
+            if (sectionId) {
+              // 사이드바에 현재 섹션 알림
+              window.dispatchEvent(new CustomEvent('settings-section-change', { detail: sectionId }))
+            }
+          }
+        })
+      },
+      {
+        root: container,
+        rootMargin: '-10% 0px -50% 0px',
+        threshold: [0, 0.2, 0.5, 1],
+      }
+    )
+
+    // 모든 섹션 관찰
+    sectionIds.forEach((id) => {
+      const element = document.getElementById(id)
+      if (element) {
+        observer.observe(element)
+      }
+    })
+
+    return () => {
+      observer.disconnect()
+      container.removeEventListener('scroll', handleScroll)
+    }
+  }, [])
+
+  // URL 해시로 초기 스크롤
+  useEffect(() => {
+    const hash = window.location.hash.replace('#', '')
+    if (hash && sectionIds.includes(hash)) {
+      setTimeout(() => {
+        const element = document.getElementById(hash)
+        if (element) {
+          element.scrollIntoView({ block: 'start' })
+        }
+      }, 100)
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // STO 세션 상태 확인
   const checkSTOStatus = useCallback(async () => {
@@ -126,18 +243,45 @@ export default function SettingsPage() {
     const savedNotifySound = localStorage.getItem('sto_notify_sound')
 
     if (savedEmail) setStoEmail(savedEmail)
-    if (savedPollInterval) setPollInterval(Number(savedPollInterval))
-    if (savedNotifyNew !== null) setNotifyOnNewBooking(savedNotifyNew === 'true')
-    if (savedNotifySound !== null) setNotifySound(savedNotifySound === 'true')
+    if (savedPollInterval) {
+      const interval = Number(savedPollInterval)
+      setPollInterval(interval)
+      setInitialPollInterval(interval)
+    }
+    if (savedNotifyNew !== null) {
+      const value = savedNotifyNew === 'true'
+      setNotifyOnNewBooking(value)
+      setInitialNotifyOnNewBooking(value)
+    }
+    if (savedNotifySound !== null) {
+      const value = savedNotifySound === 'true'
+      setNotifySound(value)
+      setInitialNotifySound(value)
+    }
 
     // KPI 목표 설정 로드
     const savedKpiTargets = localStorage.getItem('kpi_targets')
     if (savedKpiTargets) {
       try {
         const parsed = JSON.parse(savedKpiTargets)
-        setKpiTargets(prev => ({ ...prev, ...parsed }))
+        const merged = { ...kpiTargets, ...parsed }
+        setKpiTargets(merged)
+        setInitialKpiTargets(merged)
       } catch (e) {
         console.error('KPI 설정 로드 실패:', e)
+      }
+    }
+
+    // 화면 설정 로드
+    const savedDisplaySettings = localStorage.getItem('display_settings')
+    if (savedDisplaySettings) {
+      try {
+        const parsed = JSON.parse(savedDisplaySettings)
+        const merged = { ...displaySettings, ...parsed }
+        setDisplaySettings(merged)
+        setInitialDisplaySettings(merged)
+      } catch (e) {
+        console.error('화면 설정 로드 실패:', e)
       }
     }
 
@@ -146,6 +290,7 @@ export default function SettingsPage() {
 
     // 구글 시트 설정 로드
     loadGoogleSheetSettings()
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkSTOStatus])
 
   // 구글 시트 설정 로드
@@ -359,15 +504,54 @@ export default function SettingsPage() {
     }
   }
 
-  // 설정 저장
-  const handleSaveSettings = () => {
-    localStorage.setItem('sto_email', stoEmail)
+  // 변경 감지 함수
+  const isSyncSettingChanged = pollInterval !== initialPollInterval
+
+  const isKpiSettingChanged = JSON.stringify(kpiTargets) !== JSON.stringify(initialKpiTargets)
+
+  const isNotifySettingChanged =
+    notifyOnNewBooking !== initialNotifyOnNewBooking ||
+    notifySound !== initialNotifySound
+
+  const isDisplaySettingChanged = JSON.stringify(displaySettings) !== JSON.stringify(initialDisplaySettings)
+
+  // 동기화 설정 저장
+  const handleSaveSyncSettings = () => {
     localStorage.setItem('sto_poll_interval', pollInterval.toString())
+    setInitialPollInterval(pollInterval)
+    setSyncSettingResult({ success: true, message: '동기화 설정이 저장되었습니다.' })
+    setTimeout(() => setSyncSettingResult(null), 3000)
+  }
+
+  // KPI 설정 저장
+  const handleSaveKpiSettings = () => {
+    localStorage.setItem('kpi_targets', JSON.stringify(kpiTargets))
+    setInitialKpiTargets({ ...kpiTargets })
+    setKpiSettingResult({ success: true, message: 'KPI 목표가 저장되었습니다.' })
+    setTimeout(() => setKpiSettingResult(null), 3000)
+  }
+
+  // 알림 설정 저장
+  const handleSaveNotifySettings = () => {
     localStorage.setItem('sto_notify_new', notifyOnNewBooking.toString())
     localStorage.setItem('sto_notify_sound', notifySound.toString())
-    localStorage.setItem('kpi_targets', JSON.stringify(kpiTargets))
-    // 비밀번호는 보안상 localStorage에 저장하지 않음
-    setTestResult({ success: true, message: '설정이 저장되었습니다' })
+    setInitialNotifyOnNewBooking(notifyOnNewBooking)
+    setInitialNotifySound(notifySound)
+    setNotifySettingResult({ success: true, message: '알림 설정이 저장되었습니다.' })
+    setTimeout(() => setNotifySettingResult(null), 3000)
+  }
+
+  // 화면 설정 저장
+  const handleSaveDisplaySettings = () => {
+    localStorage.setItem('display_settings', JSON.stringify(displaySettings))
+    setInitialDisplaySettings({ ...displaySettings })
+    setDisplaySettingResult({ success: true, message: '화면 설정이 저장되었습니다.' })
+    setTimeout(() => setDisplaySettingResult(null), 3000)
+  }
+
+  // 화면 설정 변경 핸들러
+  const handleDisplaySettingChange = (key: keyof typeof displaySettings, value: string | number | boolean) => {
+    setDisplaySettings(prev => ({ ...prev, [key]: value }))
   }
 
   // KPI 목표 변경 핸들러
@@ -385,9 +569,9 @@ export default function SettingsPage() {
         </div>
 
         {/* Scrollable Content */}
-        <div className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6">
+        <div ref={scrollContainerRef} className="flex-1 min-h-0 overflow-y-auto pr-2 space-y-6 scroll-smooth">
           {/* STO 시스템 연동 */}
-          <GlassCard>
+          <GlassCard id="sto" className="scroll-mt-4">
             <div className="flex items-center gap-2 mb-6">
               <Settings className="w-5 h-5 text-purple-400" />
               <h2 className="text-lg font-semibold text-white">STO 예약 시스템 연동</h2>
@@ -613,7 +797,7 @@ export default function SettingsPage() {
           </GlassCard>
 
           {/* 동기화 설정 */}
-          <GlassCard>
+          <GlassCard id="sync" className="scroll-mt-4">
             <div className="flex items-center gap-2 mb-6">
               <Clock className="w-5 h-5 text-cyan-400" />
               <h2 className="text-lg font-semibold text-white">동기화 설정</h2>
@@ -640,11 +824,30 @@ export default function SettingsPage() {
                   STO 시스템에서 새 예약을 확인하는 주기입니다.
                 </p>
               </div>
+
+              {/* 저장 결과 메시지 */}
+              {syncSettingResult && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-sm">{syncSettingResult.message}</span>
+                </div>
+              )}
+
+              {/* 변경사항 있을 때만 저장 버튼 표시 */}
+              {isSyncSettingChanged && (
+                <button
+                  onClick={handleSaveSyncSettings}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-cyan-500 text-white font-medium hover:bg-cyan-600 transition-colors"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  동기화 설정 저장
+                </button>
+              )}
             </div>
           </GlassCard>
 
           {/* KPI 목표 설정 */}
-          <GlassCard>
+          <GlassCard id="kpi" className="scroll-mt-4">
             <div className="flex items-center gap-2 mb-6">
               <Target className="w-5 h-5 text-yellow-400" />
               <h2 className="text-lg font-semibold text-white">KPI 목표 설정</h2>
@@ -777,10 +980,29 @@ export default function SettingsPage() {
             <p className="text-xs text-gray-500 mt-4">
               * 설정한 목표는 통계 페이지의 KPI 현황에 반영됩니다.
             </p>
+
+            {/* 저장 결과 메시지 */}
+            {kpiSettingResult && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 mt-4">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm">{kpiSettingResult.message}</span>
+              </div>
+            )}
+
+            {/* 변경사항 있을 때만 저장 버튼 표시 */}
+            {isKpiSettingChanged && (
+              <button
+                onClick={handleSaveKpiSettings}
+                className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-yellow-500 text-white font-medium hover:bg-yellow-600 transition-colors"
+              >
+                <CheckCircle className="w-4 h-4" />
+                KPI 목표 저장
+              </button>
+            )}
           </GlassCard>
 
           {/* 알림 설정 */}
-          <GlassCard>
+          <GlassCard id="notify" className="scroll-mt-4">
             <div className="flex items-center gap-2 mb-6">
               <Bell className="w-5 h-5 text-yellow-400" />
               <h2 className="text-lg font-semibold text-white">알림 설정</h2>
@@ -823,11 +1045,30 @@ export default function SettingsPage() {
                   className="w-5 h-5 rounded bg-white/10 border-white/20 text-purple-500 focus:ring-purple-500/50"
                 />
               </label>
+
+              {/* 저장 결과 메시지 */}
+              {notifySettingResult && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400">
+                  <CheckCircle className="w-4 h-4" />
+                  <span className="text-sm">{notifySettingResult.message}</span>
+                </div>
+              )}
+
+              {/* 변경사항 있을 때만 저장 버튼 표시 */}
+              {isNotifySettingChanged && (
+                <button
+                  onClick={handleSaveNotifySettings}
+                  className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-amber-500 text-white font-medium hover:bg-amber-600 transition-colors"
+                >
+                  <CheckCircle className="w-4 h-4" />
+                  알림 설정 저장
+                </button>
+              )}
             </div>
           </GlassCard>
 
           {/* 만족도조사 구글 시트 연동 */}
-          <GlassCard>
+          <GlassCard id="google-sheet" className="scroll-mt-4">
             <div className="flex items-center gap-2 mb-6">
               <FileSpreadsheet className="w-5 h-5 text-green-400" />
               <h2 className="text-lg font-semibold text-white">만족도조사 구글 시트 연동</h2>
@@ -945,15 +1186,178 @@ export default function SettingsPage() {
             </div>
           </GlassCard>
 
-          {/* 저장 버튼 */}
-          <div className="flex justify-end">
-            <button
-              onClick={handleSaveSettings}
-              className="px-6 py-3 rounded-xl bg-purple-500 text-white font-medium hover:bg-purple-600 transition-colors"
-            >
-              설정 저장
-            </button>
-          </div>
+          {/* 화면 설정 */}
+          <GlassCard id="display" className="scroll-mt-4">
+            <div className="flex items-center gap-2 mb-6">
+              <Layout className="w-5 h-5 text-indigo-400" />
+              <h2 className="text-lg font-semibold text-white">화면 설정</h2>
+              <span className="text-xs text-gray-500 ml-auto">페이지별 커스텀</span>
+            </div>
+
+            <div className="space-y-6">
+              {/* 대시보드 설정 */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-purple-500/20">
+                    <Layout className="w-4 h-4 text-purple-400" />
+                  </div>
+                  <span className="text-sm font-medium text-white">대시보드</span>
+                </div>
+                <div className="pl-8 space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                    <div>
+                      <p className="text-sm text-gray-300">최근 예약 표시 개수</p>
+                      <p className="text-xs text-gray-500">대시보드에 표시할 예약 수</p>
+                    </div>
+                    <select
+                      value={displaySettings.dashboard_recent_bookings_count}
+                      onChange={(e) => handleDisplaySettingChange('dashboard_recent_bookings_count', Number(e.target.value))}
+                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
+                    >
+                      <option value={2}>2개</option>
+                      <option value={4}>4개</option>
+                      <option value={6}>6개</option>
+                      <option value={8}>8개</option>
+                    </select>
+                  </div>
+                  <label className="flex items-center justify-between p-3 rounded-lg bg-white/5 cursor-pointer hover:bg-white/[0.07] transition-colors">
+                    <div>
+                      <p className="text-sm text-gray-300">알림 카드 표시</p>
+                      <p className="text-xs text-gray-500">대시보드에 알림 패널 표시</p>
+                    </div>
+                    <input
+                      type="checkbox"
+                      checked={displaySettings.dashboard_show_notifications}
+                      onChange={(e) => handleDisplaySettingChange('dashboard_show_notifications', e.target.checked)}
+                      className="w-5 h-5 rounded bg-white/10 border-white/20 text-purple-500 focus:ring-purple-500/50"
+                    />
+                  </label>
+                </div>
+              </div>
+
+              {/* 예약 관리 설정 */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-cyan-500/20">
+                    <Calendar className="w-4 h-4 text-cyan-400" />
+                  </div>
+                  <span className="text-sm font-medium text-white">예약 관리</span>
+                </div>
+                <div className="pl-8 space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                    <div>
+                      <p className="text-sm text-gray-300">기본 상태 필터</p>
+                      <p className="text-xs text-gray-500">페이지 진입 시 기본 필터</p>
+                    </div>
+                    <select
+                      value={displaySettings.bookings_default_status}
+                      onChange={(e) => handleDisplaySettingChange('bookings_default_status', e.target.value)}
+                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
+                    >
+                      <option value="all">전체</option>
+                      <option value="APPROVED">승인</option>
+                      <option value="PENDING">대기</option>
+                      <option value="CANCELLED">취소</option>
+                    </select>
+                  </div>
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                    <div>
+                      <p className="text-sm text-gray-300">페이지당 항목 수</p>
+                      <p className="text-xs text-gray-500">목록에 표시할 예약 수</p>
+                    </div>
+                    <select
+                      value={displaySettings.bookings_items_per_page}
+                      onChange={(e) => handleDisplaySettingChange('bookings_items_per_page', Number(e.target.value))}
+                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
+                    >
+                      <option value={5}>5개</option>
+                      <option value={10}>10개</option>
+                      <option value={20}>20개</option>
+                      <option value={50}>50개</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* 통계 설정 */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-yellow-500/20">
+                    <BarChart3 className="w-4 h-4 text-yellow-400" />
+                  </div>
+                  <span className="text-sm font-medium text-white">통계</span>
+                </div>
+                <div className="pl-8 space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                    <div>
+                      <p className="text-sm text-gray-300">기본 탭</p>
+                      <p className="text-xs text-gray-500">통계 페이지 진입 시 기본 탭</p>
+                    </div>
+                    <select
+                      value={displaySettings.statistics_default_tab}
+                      onChange={(e) => handleDisplaySettingChange('statistics_default_tab', e.target.value)}
+                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
+                    >
+                      <option value="overview">개요</option>
+                      <option value="studios">스튜디오별</option>
+                      <option value="users">이용자 분석</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              {/* 만족도조사 설정 */}
+              <div>
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="p-1.5 rounded-lg bg-green-500/20">
+                    <ClipboardCheck className="w-4 h-4 text-green-400" />
+                  </div>
+                  <span className="text-sm font-medium text-white">만족도조사</span>
+                </div>
+                <div className="pl-8 space-y-3">
+                  <div className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                    <div>
+                      <p className="text-sm text-gray-300">페이지당 항목 수</p>
+                      <p className="text-xs text-gray-500">응답 목록에 표시할 수</p>
+                    </div>
+                    <select
+                      value={displaySettings.surveys_items_per_page}
+                      onChange={(e) => handleDisplaySettingChange('surveys_items_per_page', Number(e.target.value))}
+                      className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 text-white text-sm focus:outline-none focus:border-purple-500/50"
+                    >
+                      <option value={5}>5개</option>
+                      <option value={10}>10개</option>
+                      <option value={20}>20개</option>
+                      <option value={50}>50개</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p className="text-xs text-gray-500 mt-6">
+              * 설정한 값은 저장 후 해당 페이지에 반영됩니다.
+            </p>
+
+            {/* 저장 결과 메시지 */}
+            {displaySettingResult && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-green-500/10 border border-green-500/20 text-green-400 mt-4">
+                <CheckCircle className="w-4 h-4" />
+                <span className="text-sm">{displaySettingResult.message}</span>
+              </div>
+            )}
+
+            {/* 변경사항 있을 때만 저장 버튼 표시 */}
+            {isDisplaySettingChanged && (
+              <button
+                onClick={handleSaveDisplaySettings}
+                className="w-full mt-4 flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-indigo-500 text-white font-medium hover:bg-indigo-600 transition-colors"
+              >
+                <CheckCircle className="w-4 h-4" />
+                화면 설정 저장
+              </button>
+            )}
+          </GlassCard>
         </div>
       </div>
     </AdminLayout>

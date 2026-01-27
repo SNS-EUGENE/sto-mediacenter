@@ -4,7 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import AdminLayout from '@/components/layout/AdminLayout'
 import GlassCard from '@/components/ui/GlassCard'
 import Select from '@/components/ui/Select'
-import { getBookingsByDateRange, getLongTermUserCount, getLongTermUsers, type LongTermUser } from '@/lib/supabase/queries'
+import { getBookingsByDateRange, getLongTermUsersByYear, type LongTermUser } from '@/lib/supabase/queries'
 import { supabase } from '@/lib/supabase/client'
 import { STUDIOS } from '@/lib/constants'
 import { Calendar, TrendingUp, Clock, Users, Target, Award, Building2, Loader2, Presentation, Film, Gift, Handshake, Download, FileSpreadsheet, FileText, Banknote, ChevronDown, ChevronRight } from 'lucide-react'
@@ -258,8 +258,8 @@ export default function StatisticsPage() {
 
       setKpiData({ programCount, contentCount, goodsAchievementRate })
 
-      // 장기 이용자 데이터 로드 (12개월 내 3회 이상 예약한 기관)
-      const longTermStats = await getLongTermUsers(12, 3)
+      // 장기 이용자 데이터 로드 (해당 연도 내 3회 이상 예약한 기관)
+      const longTermStats = await getLongTermUsersByYear(selectedYear, 3)
       setLongTermUserCount(longTermStats.longTermUsers.filter(u => u.isOrganization).length)
       setLongTermUserList(longTermStats.longTermUsers)
     } catch (err) {
@@ -699,7 +699,7 @@ export default function StatisticsPage() {
                             <span className="text-lg text-gray-400">{KPI_META.longTermUsers.unit}</span>
                             <span className="text-sm text-gray-500 ml-1">/ {target}{KPI_META.longTermUsers.unit}</span>
                           </div>
-                          <p className="text-xs text-gray-500 mt-1">12개월 내 3회 이상 예약 기관</p>
+                          <p className="text-xs text-gray-500 mt-1">{selectedYear}년 내 3회 이상 예약 기관</p>
                         </div>
                         <div className="h-2 bg-white/5 rounded-full overflow-hidden mb-3">
                           <div className={cn('h-full rounded-full transition-all duration-500', isAchieved ? 'bg-gradient-to-r from-emerald-500 to-green-500' : 'bg-gradient-to-r from-amber-500 to-yellow-500')} style={{ width: `${Math.min(rate, 100)}%` }} />

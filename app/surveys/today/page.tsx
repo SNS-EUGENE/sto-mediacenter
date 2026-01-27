@@ -127,9 +127,42 @@ export default function TodaySurveyPage() {
 
   const isToday = selectedDate === new Date().toISOString().split('T')[0]
 
+  // 예약 시작 시간이 지났는지 확인
+  const isBookingStarted = (booking: TodayBooking) => {
+    if (!booking.time_slots || booking.time_slots.length === 0) return true
+    const startHour = Math.min(...booking.time_slots)
+    const bookingStartTime = new Date(`${booking.rental_date}T${String(startHour).padStart(2, '0')}:00:00`)
+    return new Date() >= bookingStartTime
+  }
+
+  // 예약 시작 시간 포맷
+  const getStartTimeStr = (booking: TodayBooking) => {
+    if (!booking.time_slots || booking.time_slots.length === 0) return ''
+    const startHour = Math.min(...booking.time_slots)
+    return `${String(startHour).padStart(2, '0')}:00`
+  }
+
+  // 카드 클릭 핸들러 (시간 체크 포함)
+  const handleCardClickWithTimeCheck = (booking: TodayBooking) => {
+    if (!isBookingStarted(booking)) {
+      // 시작 전이면 에러 표시
+      setPinError(`설문은 ${getStartTimeStr(booking)} 이후부터 참여 가능합니다.`)
+      setSelectedBooking(booking)
+      return
+    }
+    handleCardClick(booking)
+  }
+
   return (
-    <div className="min-h-screen bg-gray-900 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-900 py-8 px-4 relative overflow-hidden">
+      {/* Ambient Background Glow */}
+      <div className="ambient-bg with-transition">
+        <div className="blob blob-1" />
+        <div className="blob blob-2" />
+        <div className="blob blob-3" />
+      </div>
+
+      <div className="max-w-2xl mx-auto relative z-10">
         {/* 헤더 */}
         <div className="text-center mb-8">
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-purple-500/20 rounded-full mb-4">
@@ -194,45 +227,99 @@ export default function TodaySurveyPage() {
           </div>
         ) : (
           <div className="space-y-4">
-            {bookings.map((booking) => (
-              <button
-                key={booking.id}
-                onClick={() => handleCardClick(booking)}
-                className="w-full p-6 bg-white/5 border border-white/10 rounded-xl hover:bg-white/10 hover:border-purple-500/50 transition text-left"
-              >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-purple-500/20">
-                      <Building2 className="w-5 h-5 text-purple-400" />
+            {bookings.map((booking) => {
+              const started = isBookingStarted(booking)
+              return (
+                <button
+                  key={booking.id}
+                  onClick={() => handleCardClickWithTimeCheck(booking)}
+                  className={`w-full p-6 border rounded-xl transition text-left ${
+                    started
+                      ? 'bg-white/5 border-white/10 hover:bg-white/10 hover:border-purple-500/50'
+                      : 'bg-amber-500/5 border-amber-500/20 hover:bg-amber-500/10'
+                  }`}
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex items-center gap-3">
+                      <div className={`p-2 rounded-lg ${started ? 'bg-purple-500/20' : 'bg-amber-500/20'}`}>
+                        {started ? (
+                          <Building2 className="w-5 h-5 text-purple-400" />
+                        ) : (
+                          <Clock className="w-5 h-5 text-amber-400" />
+                        )}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-white">
+                          {booking.studio.name}
+                        </p>
+                        <p className="text-sm text-gray-400">
+                          {booking.organization || booking.applicant_name}
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="font-semibold text-white">
-                        {booking.studio.name}
-                      </p>
-                      <p className="text-sm text-gray-400">
-                        {booking.organization || booking.applicant_name}
-                      </p>
-                    </div>
+                    {/* 시간 전 표시 */}
+                    {!started && (
+                      <span className="px-2 py-1 bg-amber-500/20 text-amber-400 text-xs rounded-full">
+                        {getStartTimeStr(booking)} 이후
+                      </span>
+                    )}
                   </div>
-                </div>
 
-                <div className="flex items-center gap-6 text-sm">
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <Clock className="w-4 h-4" />
-                    <span>{formatTimeSlots(booking.time_slots)}</span>
+                  <div className="flex items-center gap-6 text-sm">
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <Clock className="w-4 h-4" />
+                      <span>{formatTimeSlots(booking.time_slots)}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-gray-400">
+                      <User className="w-4 h-4" />
+                      <span>{booking.applicant_name}</span>
+                    </div>
                   </div>
-                  <div className="flex items-center gap-2 text-gray-400">
-                    <User className="w-4 h-4" />
-                    <span>{booking.applicant_name}</span>
-                  </div>
+                </button>
+              )
+            })}
+          </div>
+        )}
+
+        {/* 시간 제한 모달 */}
+        {selectedBooking && !isBookingStarted(selectedBooking) && (
+          <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
+            <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md">
+              <div className="text-center mb-6">
+                <div className="inline-flex p-3 rounded-full bg-amber-500/20 mb-4">
+                  <Clock className="w-8 h-8 text-amber-400" />
                 </div>
+                <h2 className="text-xl font-bold text-white mb-2">아직 설문 시간이 아닙니다</h2>
+                <p className="text-gray-400 text-sm">
+                  예약 시작 시간 이후부터 설문에 참여하실 수 있습니다.
+                </p>
+              </div>
+
+              <div className="mb-6 p-4 rounded-xl bg-white/5">
+                <p className="text-sm text-gray-400 mb-2">
+                  <span className="text-white font-medium">
+                    {selectedBooking.studio.name}
+                  </span>{' '}
+                  · {selectedBooking.applicant_name}
+                </p>
+                <div className="flex items-center gap-2 text-amber-400">
+                  <Clock className="w-4 h-4" />
+                  <span className="font-medium">{getStartTimeStr(selectedBooking)} 이후 참여 가능</span>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setSelectedBooking(null)}
+                className="w-full py-3 bg-gray-700 text-gray-300 rounded-xl font-medium hover:bg-gray-600 transition"
+              >
+                닫기
               </button>
-            ))}
+            </div>
           </div>
         )}
 
         {/* PIN 입력 모달 */}
-        {selectedBooking && (
+        {selectedBooking && isBookingStarted(selectedBooking) && (
           <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
             <div className="bg-gray-800 rounded-2xl p-6 w-full max-w-md">
               <div className="text-center mb-6">

@@ -1,10 +1,11 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { cn } from '@/lib/utils'
 import { useAuth } from '@/components/providers/AuthProvider'
-import { LogOut } from 'lucide-react'
+import { LogOut, ChevronDown } from 'lucide-react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 
 interface SidebarProps {
   collapsed: boolean
@@ -12,9 +13,116 @@ interface SidebarProps {
   mounted?: boolean
 }
 
+// 설정 페이지 하위 메뉴
+const settingsSubItems = [
+  { id: 'sto', label: 'STO 연동' },
+  { id: 'sync', label: '동기화' },
+  { id: 'kpi', label: 'KPI 목표' },
+  { id: 'notify', label: '알림' },
+  { id: 'google-sheet', label: '구글 시트' },
+  { id: 'display', label: '화면 설정' },
+]
+
 export default function Sidebar({ collapsed, onToggle, mounted }: SidebarProps) {
   const pathname = usePathname()
+  const router = useRouter()
   const { user, signOut } = useAuth()
+  const [settingsExpanded, setSettingsExpanded] = useState(false)
+  const [activeSection, setActiveSection] = useState<string>('')
+
+  // 슬라이딩 인디케이터
+  const navRef = useRef<HTMLDivElement>(null)
+  const [indicatorStyle, setIndicatorStyle] = useState(() => {
+    // sessionStorage에서 이전 위치 복원
+    if (typeof window !== 'undefined') {
+      const saved = sessionStorage.getItem('nav-indicator-pos')
+      if (saved) {
+        const { top, height } = JSON.parse(saved)
+        return { top, height, opacity: 1 }
+      }
+    }
+    return { top: 0, height: 0, opacity: 0 }
+  })
+  const [enableTransition, setEnableTransition] = useState(false)
+
+  // 설정 페이지일 때 자동으로 펼치기
+  const isSettingsPage = pathname === '/settings'
+
+  // 인디케이터 위치 업데이트
+  const updateIndicator = useCallback((saveToStorage = true) => {
+    if (!navRef.current || collapsed) {
+      setIndicatorStyle(prev => ({ ...prev, opacity: 0 }))
+      return
+    }
+
+    const activeItem = navRef.current.querySelector('[data-active="true"]') as HTMLElement
+    if (activeItem) {
+      const navRect = navRef.current.getBoundingClientRect()
+      const itemRect = activeItem.getBoundingClientRect()
+      const newStyle = {
+        top: itemRect.top - navRect.top,
+        height: itemRect.height,
+        opacity: 1,
+      }
+      setIndicatorStyle(newStyle)
+
+      // 현재 위치를 sessionStorage에 저장 (다음 페이지 전환 시 사용)
+      if (saveToStorage) {
+        sessionStorage.setItem('nav-indicator-pos', JSON.stringify({
+          top: newStyle.top,
+          height: newStyle.height,
+        }))
+      }
+    }
+  }, [collapsed])
+
+  // 마운트 시 위치 업데이트 후 transition 활성화
+  useEffect(() => {
+    // 약간의 지연 후 현재 위치로 업데이트 (transition과 함께)
+    const timer = setTimeout(() => {
+      setEnableTransition(true)
+      updateIndicator()
+    }, 50)
+    return () => clearTimeout(timer)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  // pathname 변경 시 위치 업데이트
+  useEffect(() => {
+    if (enableTransition) {
+      updateIndicator()
+    }
+  }, [pathname, enableTransition, updateIndicator])
+
+  useEffect(() => {
+    if (isSettingsPage) {
+      setSettingsExpanded(true)
+    }
+  }, [isSettingsPage])
+
+  // 해시 변경 감지하여 활성 섹션 업데이트
+  useEffect(() => {
+    if (!isSettingsPage) return
+
+    const handleHashChange = () => {
+      const hash = window.location.hash.replace('#', '')
+      setActiveSection(hash || 'sto')
+    }
+
+    // 초기 로드 시
+    handleHashChange()
+
+    // 커스텀 이벤트 리스너 (설정 페이지에서 발생)
+    window.addEventListener('settings-section-change', ((e: CustomEvent) => {
+      setActiveSection(e.detail)
+    }) as EventListener)
+
+    window.addEventListener('hashchange', handleHashChange)
+    return () => {
+      window.removeEventListener('hashchange', handleHashChange)
+      window.removeEventListener('settings-section-change', (() => {}) as EventListener)
+    }
+  }, [isSettingsPage])
 
   const navItems = [
     {
@@ -126,17 +234,101 @@ export default function Sidebar({ collapsed, onToggle, mounted }: SidebarProps) 
       </div>
 
       {/* Navigation */}
-      <nav className={cn('nav-section flex-1 space-y-1', collapsed ? 'px-3' : 'px-4')}>
+      <nav ref={navRef} className={cn('nav-section flex-1 space-y-1 relative', collapsed ? 'px-3' : 'px-4')}>
+        {/* 슬라이딩 인디케이터 */}
+        {!collapsed && (
+          <div
+            className="absolute left-4 right-4 rounded-xl bg-gradient-to-r from-violet-500/20 to-fuchsia-500/20 border border-violet-500/30 pointer-events-none z-0"
+            style={{
+              top: indicatorStyle.top,
+              height: indicatorStyle.height,
+              opacity: indicatorStyle.opacity,
+              transition: enableTransition
+                ? 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.2s ease, opacity 0.2s ease'
+                : 'none',
+            }}
+          />
+        )}
+
         {navItems.map((item) => {
           const isActive = pathname === item.href
+          const isSettings = item.href === '/settings'
+
+          // 설정 메뉴는 특별 처리 (트리 구조)
+          if (isSettings) {
+            return (
+              <div key={item.href}>
+                {/* 설정 메인 메뉴 */}
+                <button
+                  data-active={isActive}
+                  onClick={() => {
+                    if (!collapsed) {
+                      setSettingsExpanded(!settingsExpanded)
+                    }
+                    if (!isSettingsPage) {
+                      router.push('/settings')
+                    }
+                  }}
+                  className={cn(
+                    'nav-item w-full relative z-10',
+                    isActive ? 'text-white' : 'text-white/60 hover:text-white hover:bg-white/5',
+                    collapsed && 'justify-center px-3'
+                  )}
+                >
+                  {item.icon}
+                  <span className="sidebar-text nav-text font-medium flex-1 text-left">{item.label}</span>
+                  {!collapsed && (
+                    <ChevronDown
+                      className={cn(
+                        'w-4 h-4 transition-transform duration-200 sidebar-text',
+                        settingsExpanded && 'rotate-180'
+                      )}
+                    />
+                  )}
+                </button>
+
+                {/* 설정 하위 메뉴 (트리) */}
+                {!collapsed && settingsExpanded && (
+                  <div className="ml-4 mt-1 space-y-0.5 border-l border-white/10 pl-3">
+                    {settingsSubItems.map((sub) => (
+                      <Link
+                        key={sub.id}
+                        href={`/settings#${sub.id}`}
+                        onClick={(e) => {
+                          if (isSettingsPage) {
+                            e.preventDefault()
+                            const element = document.getElementById(sub.id)
+                            if (element) {
+                              element.scrollIntoView({ block: 'start' })
+                              window.history.replaceState(null, '', `/settings#${sub.id}`)
+                              setActiveSection(sub.id)
+                            }
+                          }
+                        }}
+                        className={cn(
+                          'block py-1.5 px-3 text-sm transition-colors',
+                          activeSection === sub.id && isSettingsPage
+                            ? 'text-purple-400 font-semibold'
+                            : 'text-white/50 hover:text-white/80'
+                        )}
+                      >
+                        {sub.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )
+          }
 
           return (
             <Link
               key={item.href}
               href={item.href}
+              data-active={isActive}
               className={cn(
-                'nav-item',
-                isActive ? 'active text-white' : 'text-white/60 hover:text-white hover:bg-white/5',
+                'nav-item relative z-10',
+                isActive ? 'text-white' : 'text-white/60 hover:text-white hover:bg-white/5',
                 collapsed && 'justify-center px-3'
               )}
             >

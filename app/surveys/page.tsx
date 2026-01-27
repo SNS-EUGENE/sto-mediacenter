@@ -72,19 +72,29 @@ interface SurveyResponse {
   }
 }
 
+// 예약 기반 목록 아이템 (미응답 포함)
+interface BookingWithSurvey {
+  booking_id: string
+  applicant_name: string
+  organization: string | null
+  rental_date: string
+  studio_name: string
+  survey: SurveyResponse | null
+}
+
 interface SurveyStats {
-  totalSurveys: number
-  completedSurveys: number
-  responseRate: number
+  totalBookings: number      // 전체 예약 수
+  completedSurveys: number   // 응답 완료 수
+  responseRate: number       // 전체 예약 대비 응답률
   avgRating: number
   categoryAverages: Record<string, number>
 }
 
 export default function SurveysPage() {
   const [loading, setLoading] = useState(true)
-  const [surveys, setSurveys] = useState<SurveyResponse[]>([])
+  const [bookingsWithSurvey, setBookingsWithSurvey] = useState<BookingWithSurvey[]>([])
   const [stats, setStats] = useState<SurveyStats>({
-    totalSurveys: 0,
+    totalBookings: 0,
     completedSurveys: 0,
     responseRate: 0,
     avgRating: 0,
@@ -121,27 +131,7 @@ export default function SurveysPage() {
   const loadData = useCallback(async () => {
     setLoading(true)
     try {
-      // 설문 데이터 조회
-      let query = supabase
-        .from('satisfaction_surveys')
-        .select(`
-          id,
-          submitted_at,
-          overall_rating,
-          category_ratings,
-          comment,
-          improvement_request,
-          google_sheet_synced,
-          booking:bookings (
-            applicant_name,
-            organization,
-            rental_date,
-            studio:studios (name)
-          )
-        `)
-        .order('submitted_at', { ascending: false, nullsFirst: false })
-
-      // 날짜 필터
+      // 날짜 필터 계산
       const startDate = selectedMonth
         ? `${selectedYear}-${String(selectedMonth).padStart(2, '0')}-01`
         : `${selectedYear}-01-01`
@@ -149,49 +139,102 @@ export default function SurveysPage() {
         ? new Date(selectedYear, selectedMonth, 0).toISOString().split('T')[0]
         : `${selectedYear}-12-31`
 
-      query = query
-        .gte('created_at', startDate)
-        .lte('created_at', endDate + 'T23:59:59')
+      // 1. 전체 예약 조회 (취소 제외)
+      const { data: bookingsData, error: bookingsError } = await supabase
+        .from('bookings')
+        .select(`
+          id,
+          applicant_name,
+          organization,
+          rental_date,
+          studio:studios (name)
+        `)
+        .gte('rental_date', startDate)
+        .lte('rental_date', endDate)
+        .not('status', 'eq', 'CANCELLED')
+        .order('rental_date', { ascending: false })
 
-      const { data, error } = await query
-
-      if (error) {
-        console.error('Survey fetch error:', error)
+      if (bookingsError) {
+        console.error('Bookings fetch error:', bookingsError)
         return
       }
 
+      // 2. 설문 데이터 조회
+      const { data: surveysData, error: surveysError } = await supabase
+        .from('satisfaction_surveys')
+        .select(`
+          id,
+          booking_id,
+          submitted_at,
+          overall_rating,
+          category_ratings,
+          comment,
+          improvement_request,
+          google_sheet_synced
+        `)
+
+      if (surveysError) {
+        console.error('Surveys fetch error:', surveysError)
+        return
+      }
+
+      // 3. 예약과 설문 조인
+      const surveyMap = new Map<string, SurveyResponse>()
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const formattedSurveys = (data || []).map((s: any) => ({
-        ...s,
-        booking: Array.isArray(s.booking) ? s.booking[0] : s.booking,
-      }))
+      ;(surveysData || []).forEach((s: any) => {
+        surveyMap.set(s.booking_id, s)
+      })
 
-      setSurveys(formattedSurveys)
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const combined: BookingWithSurvey[] = (bookingsData || []).map((b: any) => {
+        const survey = surveyMap.get(b.id)
+        return {
+          booking_id: b.id,
+          applicant_name: b.applicant_name,
+          organization: b.organization,
+          rental_date: b.rental_date,
+          studio_name: b.studio?.name || '알 수 없음',
+          survey: survey ? {
+            ...survey,
+            booking: {
+              applicant_name: b.applicant_name,
+              organization: b.organization,
+              rental_date: b.rental_date,
+              studio: { name: b.studio?.name || '' }
+            }
+          } : null
+        }
+      })
 
-      // 통계 계산
-      const completedSurveys = formattedSurveys.filter((s: SurveyResponse) => s.submitted_at)
+      // 날짜 순서로 정렬 (빠른순)
+      combined.sort((a, b) => a.rental_date.localeCompare(b.rental_date))
+
+      setBookingsWithSurvey(combined)
+
+      // 통계 계산 - 제출된 설문만
+      const completedSurveys = combined.filter(item => item.survey?.submitted_at)
 
       // 카테고리별 평균 (새 항목 + 레거시 항목 모두)
       const categoryAverages: Record<string, number> = {}
       ALL_CATEGORY_KEYS.forEach(key => {
         const ratings = completedSurveys
-          .filter((s: SurveyResponse) => s.category_ratings && s.category_ratings[key])
-          .map((s: SurveyResponse) => s.category_ratings![key])
+          .filter(item => item.survey?.category_ratings && item.survey.category_ratings[key])
+          .map(item => item.survey!.category_ratings![key])
         if (ratings.length > 0) {
           categoryAverages[key] = ratings.reduce((sum, r) => sum + r, 0) / ratings.length
         }
       })
 
-      // 전체 평균 만족도 계산 - category_ratings 값들의 전체 평균 (모든 유효한 키)
+      // 전체 평균 만족도 계산
       let avgRating = 0
       if (completedSurveys.length > 0) {
         let totalSum = 0
         let totalCount = 0
-        completedSurveys.forEach((s: SurveyResponse) => {
-          if (s.category_ratings) {
+        completedSurveys.forEach(item => {
+          if (item.survey?.category_ratings) {
             ALL_CATEGORY_KEYS.forEach(key => {
-              if (s.category_ratings![key]) {
-                totalSum += s.category_ratings![key]
+              if (item.survey!.category_ratings![key]) {
+                totalSum += item.survey!.category_ratings![key]
                 totalCount++
               }
             })
@@ -200,17 +243,21 @@ export default function SurveysPage() {
         avgRating = totalCount > 0 ? totalSum / totalCount : 0
       }
 
+      // 응답률 = 제출된 설문 / 전체 예약
+      const totalBookings = combined.length
+      const responseRate = totalBookings > 0 ? (completedSurveys.length / totalBookings) * 100 : 0
+
       setStats({
-        totalSurveys: formattedSurveys.length,
+        totalBookings,
         completedSurveys: completedSurveys.length,
-        responseRate: formattedSurveys.length > 0 ? (completedSurveys.length / formattedSurveys.length) * 100 : 0,
+        responseRate,
         avgRating,
         categoryAverages,
       })
 
       // 동기화 실패 건수
-      const failedCount = formattedSurveys.filter(
-        (s: SurveyResponse) => s.submitted_at && !s.google_sheet_synced
+      const failedCount = combined.filter(
+        item => item.survey?.submitted_at && !item.survey.google_sheet_synced
       ).length
       setFailedSyncCount(failedCount)
 
@@ -262,7 +309,7 @@ export default function SurveysPage() {
             <div>
               <h1 className="text-xl lg:text-2xl font-bold text-white">만족도조사</h1>
               <p className="text-sm text-gray-500">
-                총 {stats.totalSurveys}건 · 응답 {stats.completedSurveys}건
+                전체 예약 {stats.totalBookings}건 · 응답 {stats.completedSurveys}건
               </p>
             </div>
             <div className="flex items-center gap-2">
@@ -298,8 +345,8 @@ export default function SurveysPage() {
                     <Users className="w-5 h-5 text-blue-400" />
                   </div>
                   <div>
-                    <p className="text-2xl font-bold text-white">{stats.totalSurveys}</p>
-                    <p className="text-xs text-gray-500">총 발송</p>
+                    <p className="text-2xl font-bold text-white">{stats.totalBookings}</p>
+                    <p className="text-xs text-gray-500">전체 예약</p>
                   </div>
                 </div>
               </GlassCard>
@@ -348,11 +395,11 @@ export default function SurveysPage() {
             <div className="grid lg:grid-cols-3 gap-4">
               {/* 카테고리별 만족도 */}
               <GlassCard className="lg:col-span-2">
-                <div className="flex items-center gap-2 mb-3">
+                <div className="flex items-center gap-2 mb-4">
                   <BarChart3 className="w-5 h-5 text-purple-400" />
                   <h3 className="text-lg font-semibold text-white">항목별 만족도</h3>
                 </div>
-                <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-4">
                   {/* 데이터가 있는 항목만 표시 (새 항목 우선, 레거시 항목도 표시) */}
                   {Object.entries(stats.categoryAverages)
                     .filter(([, avg]) => avg > 0)
@@ -366,31 +413,19 @@ export default function SurveysPage() {
                       return 0
                     })
                     .map(([key, avg]) => {
-                      const percent = (avg / 5) * 100
                       const label = CATEGORY_LABELS[key] || key
                       return (
-                        <div key={key}>
-                          <div className="flex items-center justify-between mb-1">
-                            <span className="text-sm text-gray-400">{label}</span>
-                            <div className="flex items-center gap-2">
-                              <StarRating rating={avg} size="sm" />
-                              <span className="text-sm font-medium text-white">{avg.toFixed(1)}</span>
-                            </div>
-                          </div>
-                          <div className="h-2 bg-white/5 rounded-full overflow-hidden">
-                            <div
-                              className={cn(
-                                'h-full rounded-full transition-all',
-                                avg >= 4 ? 'bg-green-500' : avg >= 3 ? 'bg-yellow-500' : 'bg-red-500'
-                              )}
-                              style={{ width: `${percent}%` }}
-                            />
+                        <div key={key} className="flex items-center justify-between p-3 rounded-lg bg-white/5">
+                          <span className="text-sm text-gray-400">{label}</span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-bold text-white">{avg.toFixed(1)}</span>
+                            <StarRating rating={avg} size="sm" />
                           </div>
                         </div>
                       )
                     })}
                   {Object.keys(stats.categoryAverages).length === 0 && (
-                    <p className="text-gray-500 text-sm text-center py-4">아직 응답 데이터가 없습니다.</p>
+                    <p className="text-gray-500 text-sm text-center py-4 col-span-2">아직 응답 데이터가 없습니다.</p>
                   )}
                 </div>
               </GlassCard>
@@ -461,63 +496,79 @@ export default function SurveysPage() {
               </GlassCard>
             )}
 
-            {/* 응답 목록 */}
+            {/* 예약 목록 (응답/미응답 포함) */}
             <GlassCard>
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-2">
                   <Calendar className="w-5 h-5 text-blue-400" />
-                  <h3 className="text-lg font-semibold text-white">응답 목록</h3>
+                  <h3 className="text-lg font-semibold text-white">예약 목록</h3>
                 </div>
-                <span className="text-sm text-gray-500">{surveys.length}건</span>
+                <span className="text-sm text-gray-500">
+                  전체 {bookingsWithSurvey.length}건 · 응답 {stats.completedSurveys}건
+                </span>
               </div>
 
-              {surveys.length === 0 ? (
+              {bookingsWithSurvey.length === 0 ? (
                 <div className="text-center py-12">
                   <Calendar className="w-12 h-12 text-gray-600 mx-auto mb-4" />
-                  <p className="text-gray-400">해당 기간의 설문 데이터가 없습니다.</p>
+                  <p className="text-gray-400">해당 기간의 예약이 없습니다.</p>
                 </div>
               ) : (
                 <div className="grid grid-cols-1 lg:grid-cols-2 gap-2">
-                  {surveys.map((survey) => (
+                  {bookingsWithSurvey.map((item, index) => {
+                    // 1개면 풀 너비, 홀수개면 마지막 아이템 풀 너비
+                    const isLastOdd = bookingsWithSurvey.length % 2 === 1 && index === bookingsWithSurvey.length - 1
+                    const isSingleItem = bookingsWithSurvey.length === 1
+                    const shouldSpanFull = isSingleItem || isLastOdd
+                    const survey = item.survey
+                    const isSubmitted = !!survey?.submitted_at
+
+                    return (
                     <div
-                      key={survey.id}
-                      className="border border-white/10 rounded-xl overflow-hidden"
+                      key={item.booking_id}
+                      className={cn(
+                        "border rounded-xl overflow-hidden",
+                        isSubmitted ? "border-white/10" : "border-gray-500/30 bg-gray-500/5",
+                        shouldSpanFull && "lg:col-span-2"
+                      )}
                     >
                       <button
-                        onClick={() => setShowDetail(showDetail === survey.id ? null : survey.id)}
-                        className="w-full p-4 flex items-center justify-between hover:bg-white/5 transition-colors"
+                        onClick={() => isSubmitted && setShowDetail(showDetail === survey?.id ? null : survey?.id || null)}
+                        className={cn(
+                          "w-full p-4 flex items-center justify-between transition-colors",
+                          isSubmitted ? "hover:bg-white/5 cursor-pointer" : "cursor-default"
+                        )}
                       >
                         <div className="flex items-center gap-4">
                           <div
                             className={cn(
                               'w-10 h-10 rounded-full flex items-center justify-center',
-                              survey.submitted_at
+                              isSubmitted
                                 ? 'bg-green-500/20'
                                 : 'bg-gray-500/20'
                             )}
                           >
-                            {survey.submitted_at ? (
+                            {isSubmitted ? (
                               <CheckCircle className="w-5 h-5 text-green-400" />
                             ) : (
-                              <Clock className="w-5 h-5 text-gray-400" />
+                              <Clock className="w-5 h-5 text-gray-500" />
                             )}
                           </div>
                           <div className="text-left">
-                            <p className="text-white font-medium">
-                              {survey.booking?.studio?.name || '알 수 없음'}
+                            <p className={cn("font-medium", isSubmitted ? "text-white" : "text-gray-400")}>
+                              {item.studio_name}
                             </p>
                             <p className="text-sm text-gray-400">
-                              {survey.booking?.organization || survey.booking?.applicant_name || '-'}
+                              {item.organization || item.applicant_name}
                               {' · '}
-                              {survey.booking?.rental_date || '-'}
+                              {item.rental_date}
                             </p>
                           </div>
                         </div>
                         <div className="flex items-center gap-4">
-                          {survey.submitted_at && survey.category_ratings && (
+                          {isSubmitted && survey?.category_ratings && (
                             <div className="hidden sm:flex items-center gap-2">
                               {(() => {
-                                // 모든 유효한 키에서 값이 있는 것만 추출
                                 const ratings = Object.values(survey.category_ratings).filter(r => r) as number[]
                                 const avg = ratings.length > 0
                                   ? ratings.reduce((sum, r) => sum + r, 0) / ratings.length
@@ -531,26 +582,28 @@ export default function SurveysPage() {
                               })()}
                             </div>
                           )}
-                          {survey.submitted_at ? (
+                          {isSubmitted ? (
                             <span className="text-xs text-gray-500">
-                              {new Date(survey.submitted_at).toLocaleDateString('ko-KR')}
+                              {new Date(survey!.submitted_at!).toLocaleDateString('ko-KR')}
                             </span>
                           ) : (
-                            <span className="text-xs text-yellow-400">응답 대기</span>
+                            <span className="px-2 py-0.5 rounded text-xs bg-gray-500/20 text-gray-400">미응답</span>
                           )}
-                          {showDetail === survey.id ? (
-                            <ChevronDown className="w-5 h-5 text-gray-400" />
-                          ) : (
-                            <ChevronRight className="w-5 h-5 text-gray-400" />
+                          {isSubmitted && (
+                            showDetail === survey?.id ? (
+                              <ChevronDown className="w-5 h-5 text-gray-400" />
+                            ) : (
+                              <ChevronRight className="w-5 h-5 text-gray-400" />
+                            )
                           )}
                         </div>
                       </button>
 
-                      {/* 상세 정보 */}
-                      {showDetail === survey.id && survey.submitted_at && (
+                      {/* 상세 정보 (응답 완료된 경우만) */}
+                      {isSubmitted && showDetail === survey?.id && (
                         <div className="px-4 pb-4 border-t border-white/10 bg-white/5 space-y-3">
-                          {/* 항목별 점수 - 한 줄에 4개 */}
-                          {survey.category_ratings && (
+                          {/* 항목별 점수 */}
+                          {survey?.category_ratings && (
                             <div className="flex flex-wrap gap-x-6 gap-y-1 pt-3">
                               {Object.entries(survey.category_ratings)
                                 .filter(([, value]) => value)
@@ -567,7 +620,7 @@ export default function SurveysPage() {
                           {/* 추가 응답 데이터 */}
                           {(() => {
                             try {
-                              const additionalData = JSON.parse(survey.improvement_request || '{}')
+                              const additionalData = JSON.parse(survey?.improvement_request || '{}')
                               const hasAnyData = additionalData.recommendation || additionalData.reuse_intention ||
                                 additionalData.cost_small_studio || additionalData.cost_large_studio ||
                                 additionalData.overall_reason || additionalData.recommendation_reason ||
@@ -577,38 +630,50 @@ export default function SurveysPage() {
 
                               return (
                                 <>
-                                  {/* 의향 + 적정비용 한 줄 */}
+                                  {/* 의향(태그) + 적정비용 한 줄 */}
                                   {(additionalData.recommendation || additionalData.reuse_intention ||
                                     additionalData.cost_small_studio || additionalData.cost_large_studio) && (
-                                    <div className="flex flex-wrap gap-x-6 gap-y-1 text-sm">
+                                    <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-sm">
                                       {additionalData.recommendation && (
-                                        <span className="text-gray-400">
-                                          추천 의향 : <span className={additionalData.recommendation === 'yes' ? 'text-green-400' : 'text-red-400'}>
-                                            {additionalData.recommendation === 'yes' ? '있다' : '없다'}
+                                        <span className="flex items-center gap-1.5 text-gray-400">
+                                          추천
+                                          <span className={cn(
+                                            "px-1.5 py-0.5 rounded text-xs font-medium",
+                                            additionalData.recommendation === 'yes'
+                                              ? 'bg-green-500/20 text-green-400'
+                                              : 'bg-red-500/20 text-red-400'
+                                          )}>
+                                            {additionalData.recommendation === 'yes' ? 'Y' : 'N'}
                                           </span>
                                         </span>
                                       )}
                                       {additionalData.reuse_intention && (
-                                        <span className="text-gray-400">
-                                          재이용 : <span className={additionalData.reuse_intention === 'yes' ? 'text-green-400' : 'text-red-400'}>
-                                            {additionalData.reuse_intention === 'yes' ? '있다' : '없다'}
+                                        <span className="flex items-center gap-1.5 text-gray-400">
+                                          재이용
+                                          <span className={cn(
+                                            "px-1.5 py-0.5 rounded text-xs font-medium",
+                                            additionalData.reuse_intention === 'yes'
+                                              ? 'bg-green-500/20 text-green-400'
+                                              : 'bg-red-500/20 text-red-400'
+                                          )}>
+                                            {additionalData.reuse_intention === 'yes' ? 'Y' : 'N'}
                                           </span>
                                         </span>
                                       )}
                                       {additionalData.cost_small_studio && (
                                         <span className="text-gray-400">
-                                          1인 스튜디오 적정가 : <span className="text-purple-400">{Number(additionalData.cost_small_studio).toLocaleString()}원</span>
+                                          1인 적정가 : <span className="text-purple-400">{Number(additionalData.cost_small_studio).toLocaleString()}원</span>
                                         </span>
                                       )}
                                       {additionalData.cost_large_studio && (
                                         <span className="text-gray-400">
-                                          대형 스튜디오 적정가 : <span className="text-purple-400">{Number(additionalData.cost_large_studio).toLocaleString()}원</span>
+                                          대형 적정가 : <span className="text-purple-400">{Number(additionalData.cost_large_studio).toLocaleString()}원</span>
                                         </span>
                                       )}
                                     </div>
                                   )}
 
-                                  {/* 텍스트 응답들 - 컴팩트하게 */}
+                                  {/* 텍스트 응답들 */}
                                   {(additionalData.overall_reason || additionalData.recommendation_reason || additionalData.equipment_improvement) && (
                                     <div className="space-y-1 text-sm">
                                       {additionalData.overall_reason && (
@@ -629,29 +694,31 @@ export default function SurveysPage() {
                             }
                           })()}
 
-                          {/* 기타 의견 */}
-                          {survey.comment && (
-                            <p className="text-sm"><span className="text-gray-500">기타:</span> <span className="text-gray-300">{survey.comment}</span></p>
-                          )}
-
-                          {/* 동기화 상태 */}
-                          <div className="flex items-center gap-2 text-xs pt-1">
-                            {survey.google_sheet_synced ? (
-                              <span className="flex items-center gap-1 text-green-400">
-                                <CheckCircle className="w-3 h-3" />
-                                시트 동기화 완료
-                              </span>
-                            ) : (
-                              <span className="flex items-center gap-1 text-yellow-400">
-                                <Clock className="w-3 h-3" />
-                                시트 동기화 대기
-                              </span>
-                            )}
+                          {/* 기타 의견 + 동기화 상태 */}
+                          <div className="flex items-end justify-between pt-1">
+                            <div className="flex-1">
+                              {survey?.comment && (
+                                <p className="text-sm"><span className="text-gray-500">기타 :</span> <span className="text-gray-300">{survey.comment}</span></p>
+                              )}
+                            </div>
+                            {/* 동기화 상태 태그 - 우하단 */}
+                            <span className={cn(
+                              "px-2 py-1 rounded text-xs font-medium flex items-center gap-1 flex-shrink-0",
+                              survey?.google_sheet_synced
+                                ? 'bg-green-500/20 text-green-400'
+                                : 'bg-yellow-500/20 text-yellow-400'
+                            )}>
+                              {survey?.google_sheet_synced ? (
+                                <><CheckCircle className="w-3 h-3" /> 동기화</>
+                              ) : (
+                                <><Clock className="w-3 h-3" /> 대기</>
+                              )}
+                            </span>
                           </div>
                         </div>
                       )}
                     </div>
-                  ))}
+                  )})}
                 </div>
               )}
             </GlassCard>

@@ -96,6 +96,7 @@ export async function GET(
           applicant_name,
           organization,
           rental_date,
+          time_slots,
           purpose,
           studio:studios (
             name
@@ -118,6 +119,25 @@ export async function GET(
         { error: '만료된 조사 링크입니다.' },
         { status: 410 }
       )
+    }
+
+    // 예약 시작 시간 이전 접근 차단
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const booking = survey.booking as any
+    if (booking?.rental_date && booking?.time_slots?.length > 0) {
+      const startHour = Math.min(...booking.time_slots)
+      const bookingStartTime = new Date(`${booking.rental_date}T${String(startHour).padStart(2, '0')}:00:00`)
+      const now = new Date()
+
+      if (now < bookingStartTime) {
+        return NextResponse.json({
+          error: '아직 설문에 참여할 수 없습니다.',
+          accessDenied: true,
+          availableFrom: bookingStartTime.toISOString(),
+          rentalDate: booking.rental_date,
+          startHour: startHour,
+        }, { status: 403 })
+      }
     }
 
     return NextResponse.json({ survey })

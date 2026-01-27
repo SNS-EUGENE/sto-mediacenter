@@ -675,3 +675,93 @@ export async function getLongTermUserCount(
   // 기관만 카운트
   return stats.longTermUsers.filter(u => u.isOrganization).length
 }
+
+/**
+ * 연도 기준 장기 이용자 통계 조회
+ * 해당 연도 내 일정 횟수 이상 예약한 기관/개인
+ *
+ * @param year 집계 연도
+ * @param minBookings 최소 예약 횟수, 기본 3회
+ */
+export async function getLongTermUsersByYear(
+  year: number,
+  minBookings: number = 3
+): Promise<LongTermUserStats> {
+  // 해당 연도 기간 계산
+  const startDateStr = `${year}-01-01`
+  const endDateStr = `${year}-12-31`
+
+  const { data, error } = await supabase
+    .from('bookings')
+    .select('applicant_name, organization, rental_date, time_slots, fee, status')
+    .gte('rental_date', startDateStr)
+    .lte('rental_date', endDateStr)
+    .not('status', 'eq', 'CANCELLED')
+
+  if (error) throw error
+
+  // 기관별/개인별 집계
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const userMap = new Map<string, {
+    name: string
+    isOrganization: boolean
+    bookings: { date: string; hours: number; fee: number }[]
+  }>()
+
+  // 개인 카테고리 (기관으로 분류하지 않음)
+  const personalCategories = ['개인', '프리랜서', '직장인', '학생', '무직', '']
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  ;(data as any[] || []).forEach((booking) => {
+    const org = booking.organization?.trim() || ''
+    const isOrganization = org && !personalCategories.includes(org)
+    const key = isOrganization ? org : booking.applicant_name
+
+    if (!userMap.has(key)) {
+      userMap.set(key, {
+        name: key,
+        isOrganization,
+        bookings: [],
+      })
+    }
+
+    userMap.get(key)!.bookings.push({
+      date: booking.rental_date,
+      hours: booking.time_slots?.length || 0,
+      fee: booking.fee || 0,
+    })
+  })
+
+  // 장기 이용자 필터링 및 정렬
+  const longTermUsers: LongTermUser[] = []
+
+  userMap.forEach((user) => {
+    if (user.bookings.length >= minBookings) {
+      const dates = user.bookings.map(b => b.date).sort()
+      const months = new Set(dates.map(d => d.substring(0, 7)))
+
+      longTermUsers.push({
+        name: user.name,
+        isOrganization: user.isOrganization,
+        bookingCount: user.bookings.length,
+        totalHours: user.bookings.reduce((sum, b) => sum + b.hours, 0),
+        totalRevenue: user.bookings.reduce((sum, b) => sum + b.fee, 0),
+        firstBookingDate: dates[0],
+        lastBookingDate: dates[dates.length - 1],
+        activeMonths: months.size,
+      })
+    }
+  })
+
+  // 예약 횟수 기준 내림차순 정렬
+  longTermUsers.sort((a, b) => b.bookingCount - a.bookingCount)
+
+  return {
+    totalLongTermUsers: longTermUsers.length,
+    longTermUsers,
+    criteria: {
+      minBookings,
+      periodMonths: 12, // 연도 기준이므로 12로 고정
+    },
+  }
+}

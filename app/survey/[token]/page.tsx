@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import { useParams } from 'next/navigation'
-import { Send, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react'
+import { Send, CheckCircle2, AlertCircle, Loader2, Clock } from 'lucide-react'
 import {
   SATISFACTION_LEVELS,
   SURVEY_CATEGORIES,
@@ -20,11 +20,18 @@ interface SurveyData {
     applicant_name: string
     organization: string | null
     rental_date: string
+    time_slots: number[]
     purpose: string | null
     studio: {
       name: string
     }
   }
+}
+
+interface AccessDeniedInfo {
+  availableFrom: string
+  rentalDate: string
+  startHour: number
 }
 
 interface SurveyFormData {
@@ -52,6 +59,7 @@ export default function SurveyPage() {
   const [error, setError] = useState<string | null>(null)
   const [survey, setSurvey] = useState<SurveyData | null>(null)
   const [submitted, setSubmitted] = useState(false)
+  const [accessDenied, setAccessDenied] = useState<AccessDeniedInfo | null>(null)
 
   const [formData, setFormData] = useState<SurveyFormData>({
     category_ratings: {},
@@ -75,6 +83,15 @@ export default function SurveyPage() {
       const data = await res.json()
 
       if (!res.ok) {
+        // 접근 제한 응답 처리
+        if (res.status === 403 && data.accessDenied) {
+          setAccessDenied({
+            availableFrom: data.availableFrom,
+            rentalDate: data.rentalDate,
+            startHour: data.startHour,
+          })
+          return
+        }
         setError(data.error || '조사를 불러올 수 없습니다.')
         return
       }
@@ -191,18 +208,67 @@ export default function SurveyPage() {
     return config.condition(rating)
   }
 
+  // 글로우 배경 컴포넌트
+  const GlowBackground = () => (
+    <div className="ambient-bg with-transition">
+      <div className="blob blob-1" />
+      <div className="blob blob-2" />
+      <div className="blob blob-3" />
+    </div>
+  )
+
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-purple-500 animate-spin" />
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center relative overflow-hidden">
+        <GlowBackground />
+        <Loader2 className="w-8 h-8 text-purple-500 animate-spin relative z-10" />
+      </div>
+    )
+  }
+
+  // 접근 제한 모달
+  if (accessDenied) {
+    const availableDate = new Date(accessDenied.availableFrom)
+    const formattedDate = availableDate.toLocaleDateString('ko-KR', {
+      month: 'long',
+      day: 'numeric',
+      weekday: 'short',
+    })
+    const formattedTime = `${String(accessDenied.startHour).padStart(2, '0')}:00`
+
+    return (
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
+        <GlowBackground />
+        <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-8 max-w-md w-full text-center relative z-10">
+          <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-amber-500/20 flex items-center justify-center">
+            <Clock className="w-8 h-8 text-amber-400" />
+          </div>
+          <h1 className="text-xl font-bold text-white mb-2">아직 설문 시간이 아닙니다</h1>
+          <p className="text-gray-400 mb-6">
+            예약 시작 시간 이후부터 설문에 참여하실 수 있습니다.
+          </p>
+          <div className="bg-white/5 rounded-lg p-4 mb-6">
+            <p className="text-sm text-gray-500 mb-1">설문 가능 시간</p>
+            <p className="text-lg font-semibold text-amber-400">
+              {formattedDate} {formattedTime} 이후
+            </p>
+          </div>
+          <button
+            onClick={() => window.location.reload()}
+            className="w-full py-3 bg-amber-600 text-white rounded-xl font-medium hover:bg-amber-700 transition"
+          >
+            새로고침
+          </button>
+        </div>
       </div>
     )
   }
 
   if (error && !survey) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 max-w-md w-full text-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
+        <GlowBackground />
+        <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-6 max-w-md w-full text-center relative z-10">
           <AlertCircle className="w-12 h-12 text-red-400 mx-auto mb-4" />
           <h1 className="text-xl font-bold text-white mb-2">접근 불가</h1>
           <p className="text-gray-400">{error}</p>
@@ -213,8 +279,9 @@ export default function SurveyPage() {
 
   if (submitted) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-8 max-w-md w-full text-center">
+      <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4 relative overflow-hidden">
+        <GlowBackground />
+        <div className="bg-green-500/10 border border-green-500/20 rounded-xl p-8 max-w-md w-full text-center relative z-10">
           <CheckCircle2 className="w-16 h-16 text-green-400 mx-auto mb-4" />
           <h1 className="text-2xl font-bold text-white mb-2">감사합니다!</h1>
           <p className="text-gray-400 mb-6">
@@ -233,8 +300,9 @@ export default function SurveyPage() {
   let questionNumber = 0
 
   return (
-    <div className="min-h-screen bg-gray-900 py-8 px-4">
-      <div className="max-w-2xl mx-auto">
+    <div className="min-h-screen bg-gray-900 py-8 px-4 relative overflow-hidden">
+      <GlowBackground />
+      <div className="max-w-2xl mx-auto relative z-10">
         {/* 헤더 */}
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold text-white mb-2">
