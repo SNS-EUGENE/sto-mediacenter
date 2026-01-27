@@ -39,8 +39,7 @@ interface SurveyFormData {
   // 조건부 질문 답변
   overall_reason: string
   equipment_improvement: string
-  cost_small_studio: string
-  cost_large_studio: string
+  studio_cost: string // 단일 비용 입력 (스튜디오 타입에 따라 동적)
   // 추천 의향
   recommendation: string
   recommendation_reason: string
@@ -48,6 +47,36 @@ interface SurveyFormData {
   reuse_intention: string
   // 기타 의견
   comment: string
+}
+
+// time_slots 배열을 "HH~HH시" 형식으로 변환
+function formatTimeSlots(timeSlots?: number[]): string {
+  if (!timeSlots || timeSlots.length === 0) return ''
+  const start = timeSlots[0]
+  const end = timeSlots[timeSlots.length - 1] + 1
+  return `${String(start).padStart(2, '0')}~${String(end).padStart(2, '0')}시`
+}
+
+// 스튜디오 이름으로 타입 판별 (대형 or 1인)
+function getStudioType(studioName: string): 'large' | 'small' {
+  // 스튜디오 C = 대형 스튜디오
+  if (studioName.includes('C') || studioName.includes('대형')) {
+    return 'large'
+  }
+  // 스튜디오 A, B = 1인 스튜디오
+  return 'small'
+}
+
+// 숫자에 세자리 쉼표 추가
+function formatNumberWithCommas(value: string): string {
+  const num = value.replace(/[^\d]/g, '')
+  if (!num) return ''
+  return Number(num).toLocaleString('ko-KR')
+}
+
+// 쉼표 제거하여 순수 숫자 반환
+function removeCommas(value: string): string {
+  return value.replace(/[^\d]/g, '')
 }
 
 export default function SurveyPage() {
@@ -67,13 +96,16 @@ export default function SurveyPage() {
     category_ratings: {},
     overall_reason: '',
     equipment_improvement: '',
-    cost_small_studio: '',
-    cost_large_studio: '',
+    studio_cost: '',
     recommendation: '',
     recommendation_reason: '',
     reuse_intention: '',
     comment: '',
   })
+
+  // 현재 스튜디오 타입 (대형 or 1인)
+  const studioType = survey ? getStudioType(survey.booking.studio.name) : 'small'
+  const studioTypeLabel = studioType === 'large' ? '대형' : '1인'
 
   useEffect(() => {
     fetchSurvey()
@@ -169,6 +201,11 @@ export default function SurveyPage() {
     setError(null)
 
     try {
+      // 스튜디오 타입에 따라 비용 필드 결정
+      const costValue = removeCommas(formData.studio_cost)
+      const cost_small_studio = studioType === 'small' ? costValue : ''
+      const cost_large_studio = studioType === 'large' ? costValue : ''
+
       // 전체 만족도는 category_ratings의 overall 값 사용
       const submitData = {
         overall_rating: formData.category_ratings['overall'] || 0,
@@ -179,8 +216,8 @@ export default function SurveyPage() {
           // 조건부 질문 답변
           overall_reason: formData.overall_reason,
           equipment_improvement: formData.equipment_improvement,
-          cost_small_studio: formData.cost_small_studio,
-          cost_large_studio: formData.cost_large_studio,
+          cost_small_studio,
+          cost_large_studio,
           // 추천/재이용 의향
           recommendation: formData.recommendation,
           recommendation_reason: formData.recommendation_reason,
@@ -353,10 +390,14 @@ export default function SurveyPage() {
             <span className="w-6 h-6 rounded-full bg-purple-500/20 flex items-center justify-center text-xs text-purple-400">i</span>
             기본 정보
           </h3>
-          <div className="grid grid-cols-2 gap-4 text-sm">
+          <div className="grid grid-cols-3 gap-4 text-sm">
             <div>
               <span className="text-gray-500">방문 일자</span>
               <p className="text-white font-medium">{survey?.booking.rental_date}</p>
+            </div>
+            <div>
+              <span className="text-gray-500">방문 시각</span>
+              <p className="text-white font-medium">{formatTimeSlots(survey?.booking.time_slots)}</p>
             </div>
             <div>
               <span className="text-gray-500">업체명 / 이용자</span>
@@ -364,7 +405,7 @@ export default function SurveyPage() {
                 {survey?.booking.organization || survey?.booking.applicant_name}
               </p>
             </div>
-            <div className="col-span-2">
+            <div className="col-span-3">
               <span className="text-gray-500">이용 스튜디오</span>
               <p className="text-white font-medium">{survey?.booking.studio.name}</p>
             </div>
@@ -440,32 +481,25 @@ export default function SurveyPage() {
                         <p className="text-gray-300 text-sm mb-3">
                           {questionNumber}-A. {conditionalConfig.question}
                         </p>
-                        <div className="space-y-3">
-                          {conditionalConfig.subQuestions.map((sub) => (
-                            <div key={sub.key}>
-                              <label className="text-gray-400 text-xs mb-1 block">
-                                {sub.label}
-                              </label>
-                              <div className="flex items-center gap-2">
-                                <span className="text-gray-500 text-sm">시간당</span>
-                                <input
-                                  type="number"
-                                  value={
-                                    sub.key === 'cost_small_studio'
-                                      ? formData.cost_small_studio
-                                      : formData.cost_large_studio
-                                  }
-                                  onChange={(e) => {
-                                    const key = sub.key === 'cost_small_studio' ? 'cost_small_studio' : 'cost_large_studio'
-                                    setFormData((prev) => ({ ...prev, [key]: e.target.value }))
-                                  }}
-                                  placeholder={sub.placeholder}
-                                  className="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
-                                />
-                                <span className="text-gray-500 text-sm">원</span>
-                              </div>
-                            </div>
-                          ))}
+                        <div>
+                          <label className="text-gray-400 text-xs mb-1 block">
+                            {studioTypeLabel} 스튜디오 1시간당 적정 금액
+                          </label>
+                          <div className="flex items-center gap-2">
+                            <span className="text-gray-500 text-sm">시간당</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              value={formData.studio_cost}
+                              onChange={(e) => {
+                                const formatted = formatNumberWithCommas(e.target.value)
+                                setFormData((prev) => ({ ...prev, studio_cost: formatted }))
+                              }}
+                              placeholder={studioType === 'large' ? '예: 100,000' : '예: 50,000'}
+                              className="flex-1 bg-gray-800 border border-gray-700 rounded-lg p-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                            />
+                            <span className="text-gray-500 text-sm">원</span>
+                          </div>
                         </div>
                       </>
                     )}
