@@ -78,12 +78,11 @@ export default function Sidebar({ collapsed, onToggle, mounted }: SidebarProps) 
 
   // 마운트 시 위치 업데이트 후 transition 활성화
   useEffect(() => {
-    // 약간의 지연 후 현재 위치로 업데이트 (transition과 함께)
-    const timer = setTimeout(() => {
+    // 다음 프레임에서 transition 활성화 (최소 지연)
+    requestAnimationFrame(() => {
       setEnableTransition(true)
       updateIndicator()
-    }, 50)
-    return () => clearTimeout(timer)
+    })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
@@ -244,7 +243,7 @@ export default function Sidebar({ collapsed, onToggle, mounted }: SidebarProps) 
               height: indicatorStyle.height,
               opacity: indicatorStyle.opacity,
               transition: enableTransition
-                ? 'top 0.3s cubic-bezier(0.4, 0, 0.2, 1), height 0.2s ease, opacity 0.2s ease'
+                ? 'top 0.2s cubic-bezier(0.4, 0, 0.2, 1), height 0.15s ease, opacity 0.15s ease'
                 : 'none',
             }}
           />
