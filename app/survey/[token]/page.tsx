@@ -59,8 +59,8 @@ function formatTimeSlots(timeSlots?: number[]): string {
 
 // 스튜디오 이름으로 타입 판별 (대형 or 1인)
 function getStudioType(studioName: string): 'large' | 'small' {
-  // 스튜디오 C = 대형 스튜디오
-  if (studioName.includes('C') || studioName.includes('대형')) {
+  // 스튜디오 C, 메인 스튜디오 = 대형 스튜디오
+  if (studioName.includes('C') || studioName.includes('대형') || studioName.includes('메인')) {
     return 'large'
   }
   // 스튜디오 A, B = 1인 스튜디오
@@ -450,32 +450,32 @@ export default function SurveyPage() {
                 {/* 조건부 질문 */}
                 {conditionalConfig && shouldShowConditional(cat.key) && (
                   <div className="mt-4 pt-4 border-t border-white/10">
-                    {'question' in conditionalConfig && (
+                    {/* question + placeholder 있는 경우 (overall, equipment) */}
+                    {'placeholder' in conditionalConfig && (
                       <>
                         <p className="text-gray-300 text-sm mb-2">
                           {questionNumber}-A. {conditionalConfig.question}
                           {cat.key === 'overall' && <span className="text-red-400"> *</span>}
                         </p>
-                        {'placeholder' in conditionalConfig && (
-                          <textarea
-                            value={
-                              cat.key === 'overall'
-                                ? formData.overall_reason
-                                : cat.key === 'equipment'
-                                ? formData.equipment_improvement
-                                : ''
-                            }
-                            onChange={(e) => {
-                              const key = cat.key === 'overall' ? 'overall_reason' : 'equipment_improvement'
-                              setFormData((prev) => ({ ...prev, [key]: e.target.value }))
-                            }}
-                            placeholder={conditionalConfig.placeholder}
-                            className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
-                            rows={2}
-                          />
-                        )}
+                        <textarea
+                          value={
+                            cat.key === 'overall'
+                              ? formData.overall_reason
+                              : cat.key === 'equipment'
+                              ? formData.equipment_improvement
+                              : ''
+                          }
+                          onChange={(e) => {
+                            const key = cat.key === 'overall' ? 'overall_reason' : 'equipment_improvement'
+                            setFormData((prev) => ({ ...prev, [key]: e.target.value }))
+                          }}
+                          placeholder={conditionalConfig.placeholder}
+                          className="w-full bg-gray-800 border border-gray-700 rounded-lg p-3 text-white placeholder-gray-500 resize-none focus:outline-none focus:ring-2 focus:ring-purple-500"
+                          rows={2}
+                        />
                       </>
                     )}
+                    {/* subQuestions 있는 경우 (cost) */}
                     {'subQuestions' in conditionalConfig && (
                       <>
                         <p className="text-gray-300 text-sm mb-3">
