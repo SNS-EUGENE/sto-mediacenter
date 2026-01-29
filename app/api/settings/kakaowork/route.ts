@@ -19,13 +19,8 @@ export async function GET() {
       throw error
     }
 
-    // 저장된 값이 없으면 기본값 반환
-    const recipients = data?.value ? JSON.parse(data.value) : [
-      'sns.mediacenter@gmail.com',
-      'sns.lim02@gmail.com',
-      'garlim@kakao.com',
-      'h_eugene0626@naver.com',
-    ]
+    // 저장된 값이 없으면 빈 배열 반환
+    const recipients = data?.value ? JSON.parse(data.value) : []
 
     return NextResponse.json({ recipients })
   } catch (error) {

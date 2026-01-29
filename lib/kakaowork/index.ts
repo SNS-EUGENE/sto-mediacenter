@@ -5,13 +5,8 @@ import { createClient } from '@supabase/supabase-js'
 const KAKAOWORK_BOT_KEY = process.env.KAKAOWORK_BOT_KEY || ''
 const KAKAOWORK_API_URL = 'https://api.kakaowork.com/v1'
 
-// 기본 수신자 (DB에서 불러오기 실패 시 사용)
-const DEFAULT_RECIPIENTS = [
-  'sns.mediacenter@gmail.com',
-  'sns.lim02@gmail.com',
-  'garlim@kakao.com',
-  'h_eugene0626@naver.com',
-]
+// 기본 수신자 없음 - 설정 페이지에서 추가 필요
+const DEFAULT_RECIPIENTS: string[] = []
 
 interface KakaoWorkResponse {
   success: boolean
