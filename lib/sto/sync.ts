@@ -1,6 +1,9 @@
 // STO 예약 동기화 및 알림 로직
 
-import { supabase, createServerClient } from '@/lib/supabase/client'
+import { createServerClient } from '@/lib/supabase/client'
+
+// 서버용 Supabase 클라이언트 (SERVICE_ROLE_KEY 사용 - RLS 우회)
+const supabase = createServerClient()
 import {
   STOBookingListItem,
   STOBookingStatus,
