@@ -219,10 +219,14 @@ export async function POST(request: NextRequest) {
           `${studioName}에 ${newRecord.applicant_name}님의 예약 상태가 ${oldStatusLabel} → ${newStatusLabel}(으)로 변경되었습니다.`
         )
 
-        // 카카오워크 알림 (취소된 경우)
+        // 카카오워크 알림 (모든 상태 변경)
+        const timeRange = formatTimeSlots(newRecord.time_slots)
         if (newRecord.status === 'CANCELLED') {
-          const timeRange = formatTimeSlots(newRecord.time_slots)
           notifyBookingChange('cancelled', studioName, newRecord.rental_date, timeRange, newRecord.applicant_name).catch(err => {
+            console.error('[Webhook] KakaoWork notification failed:', err)
+          })
+        } else {
+          notifyBookingChange('updated', studioName, newRecord.rental_date, timeRange, newRecord.applicant_name).catch(err => {
             console.error('[Webhook] KakaoWork notification failed:', err)
           })
         }
@@ -269,6 +273,12 @@ export async function POST(request: NextRequest) {
       }
 
       await sendPushNotification('예약 수정', updateMessage)
+
+      // 카카오워크 알림
+      const timeRangeForUpdate = formatTimeSlots(newRecord.time_slots)
+      notifyBookingChange('updated', studioName, newRecord.rental_date, timeRangeForUpdate, newRecord.applicant_name).catch(err => {
+        console.error('[Webhook] KakaoWork notification failed:', err)
+      })
 
       return NextResponse.json({
         success: true,
