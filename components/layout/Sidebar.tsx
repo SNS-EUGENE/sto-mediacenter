@@ -20,6 +20,7 @@ const settingsSubItems = [
   { id: 'kpi', label: 'KPI 목표' },
   { id: 'notify', label: '알림' },
   { id: 'google-sheet', label: '구글 시트' },
+  { id: 'kakaowork', label: '카카오워크' },
   { id: 'display', label: '화면 설정' },
 ]
 

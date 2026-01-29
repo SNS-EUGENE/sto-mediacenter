@@ -1,6 +1,7 @@
 // Supabase Database Webhook 엔드포인트
 // bookings 테이블에 INSERT/UPDATE 발생 시 호출됨
 import { NextRequest, NextResponse } from 'next/server'
+import { notifyBookingChange } from '@/lib/kakaowork'
 
 // Webhook payload 타입 (Supabase Database Webhook 형식)
 interface WebhookPayload {
@@ -184,6 +185,11 @@ export async function POST(request: NextRequest) {
         `${studioName}에 ${booking.applicant_name}님의 새로운 예약이 있습니다. (${booking.rental_date} / ${timeRange})`
       )
 
+      // 카카오워크 알림
+      notifyBookingChange('new', studioName, booking.rental_date, timeRange, booking.applicant_name).catch(err => {
+        console.error('[Webhook] KakaoWork notification failed:', err)
+      })
+
       // 이메일 알림
       await sendEmailNotification('new', booking)
 
@@ -212,6 +218,14 @@ export async function POST(request: NextRequest) {
           '예약 상태 변경',
           `${studioName}에 ${newRecord.applicant_name}님의 예약 상태가 ${oldStatusLabel} → ${newStatusLabel}(으)로 변경되었습니다.`
         )
+
+        // 카카오워크 알림 (취소된 경우)
+        if (newRecord.status === 'CANCELLED') {
+          const timeRange = formatTimeSlots(newRecord.time_slots)
+          notifyBookingChange('cancelled', studioName, newRecord.rental_date, timeRange, newRecord.applicant_name).catch(err => {
+            console.error('[Webhook] KakaoWork notification failed:', err)
+          })
+        }
 
         // 이메일 알림
         await sendEmailNotification('status_change', newRecord, oldRecord.status)

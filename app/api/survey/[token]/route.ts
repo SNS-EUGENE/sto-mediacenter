@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { extractSheetIdFromUrl, appendSurveyToSheet, ensureSheetHeaders } from '@/lib/google-sheets'
+import { notifySurveyCompleted } from '@/lib/kakaowork'
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -316,6 +317,11 @@ export async function POST(
         `${studioName} ${booking.rental_date} ${timeRange} 예약 건에 대한 만족도 조사가 완료되었습니다.`
       ).catch(err => {
         console.error('Background push notification failed:', err)
+      })
+
+      // 카카오워크 알림 발송
+      notifySurveyCompleted(studioName, booking.rental_date, timeRange).catch(err => {
+        console.error('Background KakaoWork notification failed:', err)
       })
     }
 

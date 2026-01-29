@@ -122,9 +122,15 @@ export default function SettingsPage() {
   const [notifySettingResult, setNotifySettingResult] = useState<{ success: boolean; message: string } | null>(null)
   const [displaySettingResult, setDisplaySettingResult] = useState<{ success: boolean; message: string } | null>(null)
 
+  // 카카오워크 설정
+  const [kakaoworkRecipients, setKakaoworkRecipients] = useState<string[]>([])
+  const [kakaoworkNewEmail, setKakaoworkNewEmail] = useState('')
+  const [kakaoworkSaving, setKakaoworkSaving] = useState(false)
+  const [kakaoworkResult, setKakaoworkResult] = useState<{ success: boolean; message: string } | null>(null)
+
   // 스크롤 컨테이너 및 섹션 참조
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-  const sectionIds = ['sto', 'sync', 'kpi', 'notify', 'google-sheet', 'display']
+  const sectionIds = ['sto', 'sync', 'kpi', 'notify', 'google-sheet', 'kakaowork', 'display']
 
   // Intersection Observer로 현재 보이는 섹션 감지
   useEffect(() => {
@@ -290,6 +296,9 @@ export default function SettingsPage() {
 
     // 구글 시트 설정 로드
     loadGoogleSheetSettings()
+
+    // 카카오워크 설정 로드
+    loadKakaoWorkSettings()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [checkSTOStatus])
 
@@ -332,6 +341,74 @@ export default function SettingsPage() {
       setSheetUrlResult({ success: false, message: '서버 오류가 발생했습니다.' })
     } finally {
       setSheetUrlSaving(false)
+    }
+  }
+
+  // 카카오워크 설정 로드
+  const loadKakaoWorkSettings = async () => {
+    try {
+      const response = await fetch('/api/settings/kakaowork')
+      const data = await response.json()
+      if (data.recipients) {
+        setKakaoworkRecipients(data.recipients)
+      }
+    } catch (error) {
+      console.error('카카오워크 설정 로드 실패:', error)
+    }
+  }
+
+  // 카카오워크 수신자 추가
+  const handleAddKakaoworkRecipient = () => {
+    const email = kakaoworkNewEmail.trim()
+    if (!email) return
+
+    // 이메일 형식 검증
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      setKakaoworkResult({ success: false, message: '올바른 이메일 형식이 아닙니다.' })
+      return
+    }
+
+    // 중복 체크
+    if (kakaoworkRecipients.includes(email)) {
+      setKakaoworkResult({ success: false, message: '이미 등록된 이메일입니다.' })
+      return
+    }
+
+    setKakaoworkRecipients([...kakaoworkRecipients, email])
+    setKakaoworkNewEmail('')
+    setKakaoworkResult(null)
+  }
+
+  // 카카오워크 수신자 삭제
+  const handleRemoveKakaoworkRecipient = (email: string) => {
+    setKakaoworkRecipients(kakaoworkRecipients.filter(e => e !== email))
+    setKakaoworkResult(null)
+  }
+
+  // 카카오워크 설정 저장
+  const handleSaveKakaoworkSettings = async () => {
+    setKakaoworkSaving(true)
+    setKakaoworkResult(null)
+
+    try {
+      const response = await fetch('/api/settings/kakaowork', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ recipients: kakaoworkRecipients }),
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setKakaoworkResult({ success: true, message: data.message })
+      } else {
+        setKakaoworkResult({ success: false, message: data.error || '저장 실패' })
+      }
+    } catch {
+      setKakaoworkResult({ success: false, message: '서버 오류가 발생했습니다.' })
+    } finally {
+      setKakaoworkSaving(false)
     }
   }
 
@@ -1180,6 +1257,110 @@ export default function SettingsPage() {
                   <>
                     <FileSpreadsheet className="w-4 h-4" />
                     구글 시트 URL 저장
+                  </>
+                )}
+              </button>
+            </div>
+          </GlassCard>
+
+          {/* 카카오워크 알림 설정 */}
+          <GlassCard id="kakaowork" className="scroll-mt-4">
+            <div className="flex items-center gap-2 mb-6">
+              <Smartphone className="w-5 h-5 text-yellow-400" />
+              <h2 className="text-lg font-semibold text-white">카카오워크 알림</h2>
+            </div>
+
+            <div className="space-y-4">
+              {/* 설명 */}
+              <div className="p-3 rounded-lg bg-yellow-500/10 border border-yellow-500/20">
+                <p className="text-sm text-yellow-400">
+                  새 예약, 예약 취소, 만족도 조사 완료 시 카카오워크로 알림을 받습니다.
+                </p>
+              </div>
+
+              {/* 수신자 목록 */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">알림 수신자</label>
+                <div className="space-y-2">
+                  {kakaoworkRecipients.map((email) => (
+                    <div
+                      key={email}
+                      className="flex items-center justify-between p-3 rounded-lg bg-white/5 border border-white/10"
+                    >
+                      <span className="text-sm text-gray-300">{email}</span>
+                      <button
+                        onClick={() => handleRemoveKakaoworkRecipient(email)}
+                        className="text-red-400 hover:text-red-300 transition-colors"
+                        title="삭제"
+                      >
+                        <AlertCircle className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                  {kakaoworkRecipients.length === 0 && (
+                    <p className="text-sm text-gray-500 p-3">등록된 수신자가 없습니다.</p>
+                  )}
+                </div>
+              </div>
+
+              {/* 수신자 추가 */}
+              <div>
+                <label className="block text-sm text-gray-400 mb-2">수신자 추가</label>
+                <div className="flex gap-2">
+                  <input
+                    type="email"
+                    value={kakaoworkNewEmail}
+                    onChange={(e) => setKakaoworkNewEmail(e.target.value)}
+                    onKeyDown={(e) => e.key === 'Enter' && handleAddKakaoworkRecipient()}
+                    placeholder="카카오워크 이메일 주소"
+                    className="flex-1 px-4 py-3 rounded-xl bg-white/5 border border-white/10 text-white placeholder-gray-500 focus:outline-none focus:border-yellow-500/50"
+                  />
+                  <button
+                    onClick={handleAddKakaoworkRecipient}
+                    className="px-4 py-3 rounded-xl bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors"
+                  >
+                    추가
+                  </button>
+                </div>
+                <p className="text-xs text-gray-500 mt-2">
+                  * 카카오워크에 가입된 이메일 주소를 입력하세요.
+                </p>
+              </div>
+
+              {/* 결과 메시지 */}
+              {kakaoworkResult && (
+                <div
+                  className={cn(
+                    'flex items-center gap-2 p-3 rounded-lg',
+                    kakaoworkResult.success
+                      ? 'bg-green-500/10 border border-green-500/20 text-green-400'
+                      : 'bg-red-500/10 border border-red-500/20 text-red-400'
+                  )}
+                >
+                  {kakaoworkResult.success ? (
+                    <CheckCircle className="w-4 h-4" />
+                  ) : (
+                    <AlertCircle className="w-4 h-4" />
+                  )}
+                  <span className="text-sm">{kakaoworkResult.message}</span>
+                </div>
+              )}
+
+              {/* 저장 버튼 */}
+              <button
+                onClick={handleSaveKakaoworkSettings}
+                disabled={kakaoworkSaving}
+                className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl bg-yellow-500/20 text-yellow-400 hover:bg-yellow-500/30 transition-colors disabled:opacity-50"
+              >
+                {kakaoworkSaving ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    저장 중...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle className="w-4 h-4" />
+                    카카오워크 설정 저장
                   </>
                 )}
               </button>
