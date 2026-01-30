@@ -138,32 +138,60 @@ export async function sendKakaoWorkNotification(text: string): Promise<void> {
 /**
  * 예약 변경 알림
  */
+export interface BookingNotifyData {
+  studioName: string
+  rentalDate: string
+  timeRange: string
+  applicantName: string
+  organization?: string | null
+  eventName?: string | null
+  participantsCount?: number | null
+  phone?: string | null
+}
+
 export async function notifyBookingChange(
   type: 'new' | 'updated' | 'cancelled',
-  studioName: string,
-  rentalDate: string,
-  timeRange: string,
-  applicantName: string
+  data: BookingNotifyData
 ): Promise<void> {
-  console.log('[KakaoWork] notifyBookingChange 호출됨:', { type, studioName, rentalDate, timeRange, applicantName })
+  console.log('[KakaoWork] notifyBookingChange 호출됨:', { type, ...data })
 
-  const typeText = {
-    new: '새 예약',
-    updated: '예약 변경',
-    cancelled: '예약 취소',
+  const headerText = {
+    new: '📅 신규 예약 건이 있습니다.',
+    updated: '🔄 예약이 수정되었습니다.',
+    cancelled: '❌ 예약이 취소되었습니다.',
   }[type]
 
-  const emoji = {
-    new: '📅',
-    updated: '🔄',
-    cancelled: '❌',
-  }[type]
+  // 신청자 (단체명)
+  const applicantLine = data.organization
+    ? `👤 ${data.applicantName} (${data.organization})`
+    : `👤 ${data.applicantName}`
 
-  const text = `${emoji} [${typeText}] ${studioName}
-📆 ${rentalDate} ${timeRange}
-👤 ${applicantName}`
+  // 메시지 조립
+  const lines = [
+    headerText,
+    `📽️ ${data.studioName}`,
+    `📆 ${data.rentalDate} ${data.timeRange}`,
+    applicantLine,
+  ]
 
-  await sendKakaoWorkNotification(text)
+  // 행사명 (있을 때만)
+  if (data.eventName) {
+    lines.push(`📌 ${data.eventName}`)
+  }
+
+  // 인원수 & 연락처 (있을 때만)
+  const extraInfo: string[] = []
+  if (data.participantsCount && data.participantsCount > 0) {
+    extraInfo.push(`👥 ${data.participantsCount}명`)
+  }
+  if (data.phone) {
+    extraInfo.push(`📞 ${data.phone}`)
+  }
+  if (extraInfo.length > 0) {
+    lines.push(extraInfo.join(' | '))
+  }
+
+  await sendKakaoWorkNotification(lines.join('\n'))
 }
 
 /**

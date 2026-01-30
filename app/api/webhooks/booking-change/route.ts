@@ -21,6 +21,10 @@ interface BookingRecord {
   status: string
   time_slots?: number[]
   sto_reqst_sn?: string
+  organization?: string | null
+  event_name?: string | null
+  participants_count?: number | null
+  phone?: string | null
   created_at: string
   updated_at: string
 }
@@ -186,7 +190,16 @@ export async function POST(request: NextRequest) {
       )
 
       // 카카오워크 알림
-      notifyBookingChange('new', studioName, booking.rental_date, timeRange, booking.applicant_name).catch(err => {
+      notifyBookingChange('new', {
+        studioName,
+        rentalDate: booking.rental_date,
+        timeRange,
+        applicantName: booking.applicant_name,
+        organization: booking.organization,
+        eventName: booking.event_name,
+        participantsCount: booking.participants_count,
+        phone: booking.phone,
+      }).catch(err => {
         console.error('[Webhook] KakaoWork notification failed:', err)
       })
 
@@ -221,12 +234,22 @@ export async function POST(request: NextRequest) {
 
         // 카카오워크 알림 (모든 상태 변경)
         const timeRange = formatTimeSlots(newRecord.time_slots)
+        const bookingData = {
+          studioName,
+          rentalDate: newRecord.rental_date,
+          timeRange,
+          applicantName: newRecord.applicant_name,
+          organization: newRecord.organization,
+          eventName: newRecord.event_name,
+          participantsCount: newRecord.participants_count,
+          phone: newRecord.phone,
+        }
         if (newRecord.status === 'CANCELLED') {
-          notifyBookingChange('cancelled', studioName, newRecord.rental_date, timeRange, newRecord.applicant_name).catch(err => {
+          notifyBookingChange('cancelled', bookingData).catch(err => {
             console.error('[Webhook] KakaoWork notification failed:', err)
           })
         } else {
-          notifyBookingChange('updated', studioName, newRecord.rental_date, timeRange, newRecord.applicant_name).catch(err => {
+          notifyBookingChange('updated', bookingData).catch(err => {
             console.error('[Webhook] KakaoWork notification failed:', err)
           })
         }
@@ -276,7 +299,16 @@ export async function POST(request: NextRequest) {
 
       // 카카오워크 알림
       const timeRangeForUpdate = formatTimeSlots(newRecord.time_slots)
-      notifyBookingChange('updated', studioName, newRecord.rental_date, timeRangeForUpdate, newRecord.applicant_name).catch(err => {
+      notifyBookingChange('updated', {
+        studioName,
+        rentalDate: newRecord.rental_date,
+        timeRange: timeRangeForUpdate,
+        applicantName: newRecord.applicant_name,
+        organization: newRecord.organization,
+        eventName: newRecord.event_name,
+        participantsCount: newRecord.participants_count,
+        phone: newRecord.phone,
+      }).catch(err => {
         console.error('[Webhook] KakaoWork notification failed:', err)
       })
 
