@@ -197,13 +197,39 @@ export async function notifyBookingChange(
 /**
  * 만족도 조사 완료 알림
  */
-export async function notifySurveyCompleted(
-  studioName: string,
-  rentalDate: string,
+export interface SurveyNotifyData {
+  studioName: string
+  rentalDate: string
   timeRange: string
-): Promise<void> {
-  const text = `📝 [만족도 조사 완료]
-${studioName} ${rentalDate} ${timeRange}`
+  applicantName: string
+  organization?: string | null
+  overallRating?: number | null
+  npsScore?: number | null
+}
 
-  await sendKakaoWorkNotification(text)
+export async function notifySurveyCompleted(data: SurveyNotifyData): Promise<void> {
+  const applicantLine = data.organization
+    ? `👤 ${data.applicantName} (${data.organization})`
+    : `👤 ${data.applicantName}`
+
+  const lines = [
+    '📝 만족도 조사가 완료되었습니다.',
+    `📽️ ${data.studioName}`,
+    `📆 ${data.rentalDate} ${data.timeRange}`,
+    applicantLine,
+  ]
+
+  // 평점 정보 (있을 때만)
+  const ratingInfo: string[] = []
+  if (data.overallRating) {
+    ratingInfo.push(`⭐ ${data.overallRating}점`)
+  }
+  if (data.npsScore !== null && data.npsScore !== undefined) {
+    ratingInfo.push(`📊 NPS ${data.npsScore}`)
+  }
+  if (ratingInfo.length > 0) {
+    lines.push(ratingInfo.join(' | '))
+  }
+
+  await sendKakaoWorkNotification(lines.join('\n'))
 }

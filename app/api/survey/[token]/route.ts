@@ -318,7 +318,15 @@ export async function POST(
       )
 
       // 카카오워크 알림 발송
-      await notifySurveyCompleted(studioName, booking.rental_date, timeRange)
+      await notifySurveyCompleted({
+        studioName,
+        rentalDate: booking.rental_date,
+        timeRange,
+        applicantName: booking.applicant_name,
+        organization: booking.organization,
+        overallRating: overall_rating,
+        npsScore: nps_score,
+      })
     }
 
     return NextResponse.json({
