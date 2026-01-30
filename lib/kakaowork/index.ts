@@ -204,7 +204,6 @@ export interface SurveyNotifyData {
   applicantName: string
   organization?: string | null
   overallRating?: number | null
-  npsScore?: number | null
 }
 
 export async function notifySurveyCompleted(data: SurveyNotifyData): Promise<void> {
@@ -219,16 +218,9 @@ export async function notifySurveyCompleted(data: SurveyNotifyData): Promise<voi
     applicantLine,
   ]
 
-  // 평점 정보 (있을 때만)
-  const ratingInfo: string[] = []
+  // 평점 (있을 때만)
   if (data.overallRating) {
-    ratingInfo.push(`⭐ ${data.overallRating}점`)
-  }
-  if (data.npsScore !== null && data.npsScore !== undefined) {
-    ratingInfo.push(`📊 NPS ${data.npsScore}`)
-  }
-  if (ratingInfo.length > 0) {
-    lines.push(ratingInfo.join(' | '))
+    lines.push(`⭐ ${data.overallRating.toFixed(1)}점`)
   }
 
   await sendKakaoWorkNotification(lines.join('\n'))

@@ -325,7 +325,6 @@ export async function POST(
         applicantName: booking.applicant_name,
         organization: booking.organization,
         overallRating: overall_rating,
-        npsScore: nps_score,
       })
     }
 
