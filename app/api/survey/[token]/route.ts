@@ -312,17 +312,13 @@ export async function POST(
       // 푸시 알림 발송: OO스튜디오 YYYY-MM-DD HH~HH시 예약 건에 대한 만족도 조사가 완료되었습니다.
       const studioName = booking.studio?.name || '스튜디오'
       const timeRange = formatTimeSlots(booking.time_slots)
-      sendPushNotification(
+      await sendPushNotification(
         '만족도 조사 완료',
         `${studioName} ${booking.rental_date} ${timeRange} 예약 건에 대한 만족도 조사가 완료되었습니다.`
-      ).catch(err => {
-        console.error('Background push notification failed:', err)
-      })
+      )
 
       // 카카오워크 알림 발송
-      notifySurveyCompleted(studioName, booking.rental_date, timeRange).catch(err => {
-        console.error('Background KakaoWork notification failed:', err)
-      })
+      await notifySurveyCompleted(studioName, booking.rental_date, timeRange)
     }
 
     return NextResponse.json({
