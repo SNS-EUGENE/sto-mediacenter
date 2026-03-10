@@ -2,6 +2,7 @@
 // bookings 테이블에 INSERT/UPDATE 발생 시 호출됨
 import { NextRequest, NextResponse } from 'next/server'
 import { notifyBookingChange } from '@/lib/kakaowork'
+import { STUDIOS } from '@/lib/constants'
 
 // Webhook payload 타입 (Supabase Database Webhook 형식)
 interface WebhookPayload {
@@ -37,17 +38,10 @@ function formatTimeSlots(timeSlots?: number[]): string {
   return `${String(start).padStart(2, '0')}~${String(end).padStart(2, '0')}시`
 }
 
-// 스튜디오 ID → 이름 매핑
-const studioNames: Record<number, string> = {
-  1: '스튜디오 A',
-  2: '스튜디오 B',
-  3: '스튜디오 C',
-  4: '편집실 1',
-  5: '편집실 2',
-}
-
+// 스튜디오 ID → 이름 매핑 (constants.ts의 STUDIOS 활용)
 function getStudioName(studioId: number): string {
-  return studioNames[studioId] || `스튜디오 ${studioId}`
+  const studio = STUDIOS.find(s => s.id === studioId)
+  return studio?.name || `스튜디오 ${studioId}`
 }
 
 // 푸시 알림 발송
