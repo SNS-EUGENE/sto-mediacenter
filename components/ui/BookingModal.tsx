@@ -484,13 +484,44 @@ export default function BookingModal({
                   </div>
                   <div>
                     <label className="block text-xs font-medium text-gray-400 mb-1.5">신청 유형</label>
-                    <input
-                      type="text"
+                    <select
                       value={userType}
                       onChange={(e) => setUserType(e.target.value)}
-                      placeholder="서울시 입주사 등"
-                      className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-sm text-white placeholder-gray-600 focus:outline-none focus:border-purple-500/50 transition-colors"
-                    />
+                      className="w-full bg-[#1a1a2e] border border-white/10 rounded-lg px-3 py-2 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors"
+                    >
+                      <option value="">선택하세요</option>
+                      {[
+                        '해당없음',
+                        '서울시 및 서울관광플라자 입주사',
+                        '관광업계 및 관광학계',
+                        '주한 해외관광청',
+                        '서울시 출자·출연 법인 및 공사',
+                        '지방 관광공사 및 재단',
+                        '서울시 관광협의회',
+                        '관광진흥을 주된 목적으로 하는 비영리 법인 (서울시 허가 법인)',
+                        '스타트업 (입주사 졸업기업 및 기 공모전 선정사)',
+                        '서울MICE얼라이언스 회원사',
+                        '서울관광플라자 크리에이티브 멤버십 이용자',
+                      ].map((opt) => (
+                        <option key={opt} value={opt}>{opt}</option>
+                      ))}
+                      {userType && ![
+                        '',
+                        '해당없음',
+                        '서울시 및 서울관광플라자 입주사',
+                        '관광업계 및 관광학계',
+                        '주한 해외관광청',
+                        '서울시 출자·출연 법인 및 공사',
+                        '지방 관광공사 및 재단',
+                        '서울시 관광협의회',
+                        '관광진흥을 주된 목적으로 하는 비영리 법인 (서울시 허가 법인)',
+                        '스타트업 (입주사 졸업기업 및 기 공모전 선정사)',
+                        '서울MICE얼라이언스 회원사',
+                        '서울관광플라자 크리에이티브 멤버십 이용자',
+                      ].includes(userType) && (
+                        <option value={userType}>{userType} (기존 값)</option>
+                      )}
+                    </select>
                   </div>
                 </div>
 
